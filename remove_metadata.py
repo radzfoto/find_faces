@@ -28,9 +28,9 @@ def remove_metadata(dir_path: Path, dirnames_to_delete: list[Path], extensions_t
 
 def main():
     if 'arm64' in platform.platform():
-        root_dir: Path = Path("/Users/raul/Pictures/test/test_pics")
+        root_dir: Path = Path("/Users/raul/Pictures/test/test_small")
     else:
-        root_dir: Path = Path("/home/raul/raul/test/test_pics")
+        root_dir: Path = Path("/home/raul/raul/test/test_small")
     
     print('Start removing metadata.')
     remove_metadata(root_dir,

@@ -10,6 +10,7 @@ from deepface.detectors import FaceDetector
 from deepface.commons import functions
 #import pandas as pd
 import time
+import cv2
 
 class Faces:
 
@@ -17,6 +18,7 @@ class Faces:
     debug_max_files_to_process = 30
     debug_max_faces_to_process = 40
     debug_use_deepface_represent = False
+    debug_use_detect_faces = True
 
     metadata_dirname: str = '.faces'
     metadata_extension: str = '.faces'
@@ -131,6 +133,31 @@ class Faces:
         return embedding
     # end get_representation()
 
+    @classmethod
+    def get_from_image(cls, image: np.ndarray, area: dict[str, int]) -> np.ndarray:
+        x, y, w, h = area['x'], area['y'], area['w'], area['h']
+        return image[y:y+h, x:x+w]
+    # end get_from_image
+
+    def resize_to_target(self, image: np.ndarray) -> np.ndarray:
+        # Get the dimensions of the image
+        h, w = image.shape[:2]
+
+        # Determine the longer dimension to use for both dimensions of the square image
+        max_dim = max(h, w)
+
+        # Calculate padding values
+        pad_h = (max_dim - h) // 2
+        pad_w = (max_dim - w) // 2
+
+        # Pad the image to make it square
+        square_image = cv2.copyMakeBorder(image, pad_h, pad_h, pad_w, pad_w, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+
+        # Resize the image to the desired dimensions
+        resized_image = cv2.resize(square_image, self.target_size)
+        return resized_image
+    # end resize_to_target()
+
     def get_from_imagefile(self,
                                filepath: Path) -> list[dict]:
         self.log.info(f'Finding faces from image: {str(filepath)}\n')
@@ -150,13 +177,24 @@ class Faces:
             self.log.info(f'Found {len(faces)} face(s) from image {filepath.as_posix()}')
             return faces
         start_time = time.time()
-        faces_found = functions.extract_faces(
-                    img=filepath.as_posix(),
-                    target_size=self.target_size,
-                    detector_backend=self.face_detector_model_name,
-                    enforce_detection=self.enforce_detection,
-                    align=self.align,
-                    grayscale=self.grayscale)
+        if self.debug_use_detect_faces:
+            image = cv2.imread(filepath.as_posix())
+            if image is None:
+                err_msg = f'Unable to open image file: {filepath.as_posix()}'
+                self.log.critical(err_msg)
+                raise FileExistsError(err_msg)
+            faces_found: list = FaceDetector.detect_faces(face_detector=self.get_face_detector_model(), 
+                                                          detector_backend=self.face_detector_model_name, 
+                                                          img=image, 
+                                                          align=self.align)
+        else:
+            faces_found = functions.extract_faces(
+                        img=filepath.as_posix(),
+                        target_size=self.target_size,
+                        detector_backend=self.face_detector_model_name,
+                        enforce_detection=self.enforce_detection,
+                        align=self.align,
+                        grayscale=self.grayscale)
         end_time = time.time()
         delta_time = end_time - start_time
         face_count = len(faces_found)
@@ -173,7 +211,11 @@ class Faces:
             delta_time = end_time - start_time
             self.log.info(f'Embedding generated in {delta_time} seconds.')
             face = {'name': None, 'confidence': confidence, 'embedding': embedding}
-            face.update(area)
+            if self.debug_use_detect_faces:
+                region: dict[str, int] = {'x': int(area[0]), 'y': int(area[1]), 'w': int(area[2]), 'h': int(area[3])}
+            else:
+                region: dict[str, int] = area
+            face.update(region)
             faces.append(face)
             face_count += 1
         # end for
@@ -205,7 +247,7 @@ class Faces:
 
     @classmethod
     def generate_metadata_filepath_name(cls, metadata_dir: Path, image_filepath: Path) -> Path:
-        face_filepath = metadata_dir / f'({image_filepath.name}{Faces.metadata_extension}'
+        face_filepath = metadata_dir / f'{image_filepath.name}{Faces.metadata_extension}'
         return face_filepath
     # end generate_metadata_filepath_name
 
