@@ -282,11 +282,11 @@ class Faces:
                     face_filepath: Path = self.generate_metadata_filepath_name(dir_path / self.metadata_dirname, image_fp)
                     if not face_filepath.exists(): # If exists, faces were already found in an earlier run
                         new_faces = self.get_from_imagefile(image_fp)
-                        if new_faces > 0:
+                        if len(new_faces) > 0:
                             self.make_metadata_dir(dir_path)
                             Faces.save_faces(face_filepath, new_faces)
+                            counts['faces'] += len(new_faces)
                         counts['files'] += 1
-                        counts['faces'] += len(new_faces)
                         if Faces.debug and ((counts['files'] >= Faces.debug_max_files_to_process) or (counts['faces'] >= Faces.debug_max_faces_to_process)):
                             break
                         # end if
