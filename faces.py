@@ -18,12 +18,6 @@ class Faces:
     debug_max_files_to_process = 30
     debug_max_faces_to_process = 40
     debug_use_deepface_represent = False
-    debug_use_detect_faces = True
-
-    metadata_dirname: str = '.faces'
-    metadata_extension: str = '.faces'
-
-    image_file_types = ['.jpg', '.JPG', '.jpeg', '.JPEG', '.png', '.PNG']
 
     # from DeepFace
     model_names: list[str] = [
@@ -56,7 +50,10 @@ class Faces:
                  log_filename: str = '.faces.log',
                  log_messages = Global_logger.INFO,
                  log_messages_to_console = True,
-                 force_early_model_build = False):
+                 force_early_model_build = False,
+                 metadata_dirname: str = '.faces',
+                 metadata_extension: str = '.faces',
+                 image_file_types = ['.jpg', '.JPG', '.jpeg', '.JPEG', '.png', '.PNG']):
 
         if Faces.debug:
             force_early_model_build = True
@@ -70,6 +67,10 @@ class Faces:
         self.log = self.logger_config.global_logger
 
         self.log.info('\n\n---------- Starting FACES ----------------------------------------------------\n\n')
+
+        self.metadata_dirname = metadata_dirname
+        self.metadata_extension = metadata_extension
+        self.image_file_types = image_file_types
 
         self.identification_model_name = identification_model_name
         self.face_detector_model_name = face_detector_model_name  # DeepFace calls this detector_backend
@@ -117,7 +118,7 @@ class Faces:
 
     def get_representation(self,
                            image: np.ndarray,
-                           is_normalized: bool = False):
+                           is_normalized: bool = True):
         if is_normalized:
              norm_image = image
         else:
@@ -141,9 +142,14 @@ class Faces:
         return image[y:y+h, x:x+w]
     # end get_from_image
 
-    def resize_to_target(self, image: np.ndarray) -> np.ndarray:
+    def resize_to_target(self, image: np.ndarray, is_normalized=True) -> np.ndarray:
+        if is_normalized:
+            norm_image = image
+        else:
+            norm_image = functions.normalize_input(img=image, normalization=self.normalization)
+
         # Get the dimensions of the image
-        h, w = image.shape[:2]
+        h, w = norm_image.shape[:2]
 
         # Determine the longer dimension to use for both dimensions of the square image
         max_dim = max(h, w)
@@ -153,7 +159,7 @@ class Faces:
         pad_w = (max_dim - w) // 2
 
         # Pad the image to make it square
-        square_image = cv2.copyMakeBorder(image, pad_h, pad_h, pad_w, pad_w, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+        square_image = cv2.copyMakeBorder(norm_image, pad_h, pad_h, pad_w, pad_w, cv2.BORDER_CONSTANT, value=[0, 0, 0])
 
         # Resize the image to the desired dimensions
         resized_image = cv2.resize(square_image, self.target_size)
@@ -180,25 +186,14 @@ class Faces:
             return faces
         start_time = time.time()
 
-        self.debug_use_detect_faces = False
-        if self.debug_use_detect_faces:
-            image = cv2.imread(filepath.as_posix())
-            if image is None:
-                err_msg = f'Unable to open image file: {filepath.as_posix()}'
-                self.log.critical(err_msg)
-                raise FileExistsError(err_msg)
-            faces_found: list = FaceDetector.detect_faces(face_detector=self.get_face_detector_model(), 
-                                                          detector_backend=self.face_detector_model_name, 
-                                                          img=image, 
-                                                          align=self.align)
-        else:
-            faces_found = functions.extract_faces(
+        faces_found = functions.extract_faces(
                         img=filepath.as_posix(),
                         target_size=self.target_size,
                         detector_backend=self.face_detector_model_name,
                         enforce_detection=self.enforce_detection,
                         align=self.align,
                         grayscale=self.grayscale)
+        
         end_time = time.time()
         delta_time = end_time - start_time
         face_count = len(faces_found)
@@ -207,23 +202,14 @@ class Faces:
         face_count = 0
         embeddings_start_time = time.time()
         for normalized_face_image, area, confidence in faces_found:
-            if self.debug:
-                flat_image: np.array = normalized_face_image.flatten()
-                a_slice: list = flat_image[6000: 6010].tolist()
-                print(a_slice)
             self.log.info(f'Generating embedding for face: {face_count}')
             start_time = time.time()
-            embedding = self.get_representation(image = normalized_face_image,
-                                                is_normalized = not self.debug_use_detect_faces)
+            embedding = self.get_representation(image = normalized_face_image)
             end_time = time.time()
             delta_time = end_time - start_time
             self.log.info(f'Embedding generated in {delta_time} seconds.')
             face = {'name': None, 'confidence': confidence, 'embedding': embedding}
-            if self.debug_use_detect_faces:
-                region: dict[str, int] = {'x': int(area[0]), 'y': int(area[1]), 'w': int(area[2]), 'h': int(area[3])}
-            else:
-                region: dict[str, int] = area
-            face.update(region)
+            face.update(area)
             faces.append(face)
             face_count += 1
         # end for
@@ -245,17 +231,14 @@ class Faces:
         return fp_faces
     # end get_faces_from_filelist()
 
-    @classmethod
-    def make_metadata_dir(cls, dir_path: Path) -> Path:
-        metadata_path = dir_path / Faces.metadata_dirname
-        if not metadata_path.exists():
-            metadata_path.mkdir(parents=False)
+    def make_metadata_dir(self, dir_path: Path) -> Path:
+        metadata_path = dir_path / self.metadata_dirname
+        metadata_path.mkdir(parents=False, exist_ok=True)
         return metadata_path
     # end make_metadata_dir()
 
-    @classmethod
-    def generate_metadata_filepath_name(cls, metadata_dir: Path, image_filepath: Path) -> Path:
-        face_filepath = metadata_dir / f'{image_filepath.name}{Faces.metadata_extension}'
+    def generate_metadata_filepath_name(self, metadata_dir: Path, image_filepath: Path) -> Path:
+        face_filepath = metadata_dir / f'{image_filepath.name}{self.metadata_extension}'
         return face_filepath
     # end generate_metadata_filepath_name
 
@@ -286,7 +269,6 @@ class Faces:
         if timeit:
             find_faces_start_time = time.time()
 
-        metadata_dir: Path = Faces.make_metadata_dir(dir_path)
         counts = {'faces': 0, 'files': 0}
 
         for image_fp in dir_path.iterdir():
@@ -296,11 +278,13 @@ class Faces:
                     counts['faces'] += sub_counts['faces']
                     counts['files'] += sub_counts['files']
             elif image_fp.is_file():
-                if image_fp.suffix in Faces.image_file_types:
-                    face_filepath: Path = Faces.generate_metadata_filepath_name(metadata_dir, image_fp)
-                    if not face_filepath.exists(): # If exists, faces were already found
+                if image_fp.suffix in self.image_file_types:
+                    face_filepath: Path = self.generate_metadata_filepath_name(dir_path / self.metadata_dirname, image_fp)
+                    if not face_filepath.exists(): # If exists, faces were already found in an earlier run
                         new_faces = self.get_from_imagefile(image_fp)
-                        Faces.save_faces(face_filepath, new_faces)
+                        if new_faces > 0:
+                            self.make_metadata_dir(dir_path)
+                            Faces.save_faces(face_filepath, new_faces)
                         counts['files'] += 1
                         counts['faces'] += len(new_faces)
                         if Faces.debug and ((counts['files'] >= Faces.debug_max_files_to_process) or (counts['faces'] >= Faces.debug_max_faces_to_process)):
