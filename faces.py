@@ -118,17 +118,19 @@ class Faces:
     def get_representation(self,
                            image: np.ndarray,
                            is_normalized: bool = False):
-        if not is_normalized:
-            img = functions.normalize_input(img=image, normalization=self.normalization)
+        if is_normalized:
+             norm_image = image
+        else:
+            norm_image = functions.normalize_input(img=image, normalization=self.normalization)
 
         # represent
         self.identification_model = self.get_identification_model()
         if 'keras' in str(type(self.identification_model)):
             # new tf versions show progress bar, set verbose=0 if annoying, 1 for one progress bar, 2 for one bar per epoch
-            embedding = self.identification_model.predict(image, verbose=2)[0].tolist()
+            embedding = self.identification_model.predict(norm_image, verbose=2)[0].tolist()
         else:
             # SFace and Dlib are not keras models and no verbose arguments
-            embedding = self.identification_model.predict(image)[0].tolist()
+            embedding = self.identification_model.predict(norm_image)[0].tolist()
 
         return embedding
     # end get_representation()
@@ -177,6 +179,8 @@ class Faces:
             self.log.info(f'Found {len(faces)} face(s) from image {filepath.as_posix()}')
             return faces
         start_time = time.time()
+
+        self.debug_use_detect_faces = False
         if self.debug_use_detect_faces:
             image = cv2.imread(filepath.as_posix())
             if image is None:
@@ -203,10 +207,14 @@ class Faces:
         face_count = 0
         embeddings_start_time = time.time()
         for normalized_face_image, area, confidence in faces_found:
+            if self.debug:
+                flat_image: np.array = normalized_face_image.flatten()
+                a_slice: list = flat_image[6000: 6010].tolist()
+                print(a_slice)
             self.log.info(f'Generating embedding for face: {face_count}')
             start_time = time.time()
             embedding = self.get_representation(image = normalized_face_image,
-                                                is_normalized = True)
+                                                is_normalized = not self.debug_use_detect_faces)
             end_time = time.time()
             delta_time = end_time - start_time
             self.log.info(f'Embedding generated in {delta_time} seconds.')
