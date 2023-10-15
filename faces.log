@@ -29,3 +29,11 @@ Starting find faces...
 2023-10-14 19:18:17,774 - global_logger - INFO - faces.py:147 - Identification model build starting: DeepFace...
 2023-10-14 19:18:21,589 - global_logger - INFO - faces.py:151 - Identification model built 3.8151590824127197 seconds.
 
+2023-10-14 19:22:20,770 - global_logger - INFO - faces.py:246 - Embedding generated in 242.99499893188477 seconds.
+2023-10-14 19:22:20,774 - global_logger - INFO - faces.py:254 - Embeddings for 1 face(s) generated in 243.0006139278412 seconds.
+
+2023-10-14 19:22:20,783 - global_logger - INFO - faces.py:304 - 
+Starting find faces...
+
+2023-10-14 19:22:20,784 - global_logger - INFO - faces.py:207 - Finding faces from image: /Users/raul/pics_test/test_small/dir2/dir3/20220619_164613.jpg
+
