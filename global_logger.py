@@ -3,7 +3,7 @@
 import logging
 from pathlib import Path
 
-class Global_logger:
+class GlobalLogger:
     _instance = None
 
     DEBUG = logging.DEBUG
@@ -65,4 +65,4 @@ class Global_logger:
     @property
     def global_logger(self):
         return self.log
-# end class Global_logger
+# end class GlobalLogger

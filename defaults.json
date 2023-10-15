@@ -1,0 +1,22 @@
+{
+    "root_images_dir": null,
+    "identification_model_name": "DeepFace",
+    "face_detector_model_name": "mtcnn",
+    "normalization": "base",
+    "align": true,
+    "silent": false,
+    "distance_metric": "cosine",
+    "use_program_dir_for_logs": false,
+    "log_dir": null,
+    "log_filename": "faces.log",
+    "log_messages": null,
+    "log_messages_to_console": false,
+    "force_early_model_build": false,
+    "metadata_dirname": "metadata",
+    "metadata_extension": ".json",
+    "image_file_types": [".jpg", ".jpeg", ".png"],
+    "debug": false,
+    "debug_max_files_to_process": 1000000000,
+    "debug_max_faces_to_process": 1000000000,
+    "debug_use_deepface_represent": false
+}

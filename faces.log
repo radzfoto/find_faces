@@ -1,0 +1,31 @@
+2023-10-14 19:14:43,575 - global_logger - INFO - faces.py:115 - 
+
+---------- Starting FACES ----------------------------------------------------
+
+
+2023-10-14 19:14:43,575 - global_logger - INFO - faces.py:302 - 
+Starting find faces...
+
+2023-10-14 19:14:43,575 - global_logger - INFO - faces.py:302 - 
+Starting find faces...
+
+2023-10-14 19:14:43,575 - global_logger - INFO - faces.py:205 - Finding faces from image: /Users/raul/pics_test/test_small/dir2/PXL_20220122_234022361.jpg
+
+2023-10-14 19:18:00,019 - global_logger - INFO - faces.py:117 - 
+
+---------- Starting FACES ----------------------------------------------------
+
+
+2023-10-14 19:18:00,019 - global_logger - INFO - faces.py:304 - 
+Starting find faces...
+
+2023-10-14 19:18:00,019 - global_logger - INFO - faces.py:304 - 
+Starting find faces...
+
+2023-10-14 19:18:00,019 - global_logger - INFO - faces.py:207 - Finding faces from image: /Users/raul/pics_test/test_small/dir2/PXL_20220122_234022361.jpg
+
+2023-10-14 19:18:17,773 - global_logger - INFO - faces.py:236 - Found 1 face(s) in 17.754101991653442 seconds from image /Users/raul/pics_test/test_small/dir2/PXL_20220122_234022361.jpg
+2023-10-14 19:18:17,774 - global_logger - INFO - faces.py:241 - Generating embedding for face: 0
+2023-10-14 19:18:17,774 - global_logger - INFO - faces.py:147 - Identification model build starting: DeepFace...
+2023-10-14 19:18:21,589 - global_logger - INFO - faces.py:151 - Identification model built 3.8151590824127197 seconds.
+

@@ -1,95 +1,131 @@
 # Copyright (c) Raul Diaz 2023, licensed per terms in LICENSE file in https://github.com/radzfoto/find_faces
-import platform
 from pathlib import Path
 import json
 import numpy as np
 from deepface import DeepFace
-from global_logger import Global_logger
-#import utilities as util
+from global_logger import GlobalLogger
 from deepface.detectors import FaceDetector
 from deepface.commons import functions
-#import pandas as pd
 import time
 import cv2
 
 class Faces:
 
-    debug: bool = True
-    debug_max_files_to_process = 30
-    debug_max_faces_to_process = 40
-    debug_use_deepface_represent = False
+    def __init__(self, params: dict):
 
-    # from DeepFace
-    model_names: list[str] = [
-        'VGG-Face', 'Facenet', 'Facenet512', 'OpenFace', 'DeepFace', 'DeepID',
-        'Dlib', 'ArcFace', 'SFace']
+        defaults_json_string = """
+        {
+            "root_images_dir": null,
+            "identification_model_name": "DeepFace",
+            "face_detector_model_name": "mtcnn",
+            "normalization": "base",
+            "grayscale": false,
+            "align": true,
+            "silent": false,
+            "distance_metric": "cosine",
+            "use_program_dir_for_logs": false,
+            "log_dir": null,
+            "log_filename": "faces.log",
+            "log_messages": null,
+            "log_messages_to_console": false,
+            "force_early_model_build": false,
+            "metadata_dirname": "metadata",
+            "metadata_extension": ".json",
+            "image_file_types": [".jpg", ".jpeg", ".png"],
+            "debug": false,
+            "debug_max_files_to_process": 1000000000,
+            "debug_max_faces_to_process": 1000000000,
+            "debug_use_deepface_represent": false
+        } """
+        self.defaults = json.loads(defaults_json_string)
 
-    # from DeepFace functions
-    face_detectors = [
-        'opencv',
-        'ssd',
-        'dlib',
-        'mtcnn',
-        'retinaface',
-        'mediapipe',
-        'yolov8',
-        'yunet']
-                 
-    # from DeepFace functions
-    normalizations: str = ['base', 'raw', 'Facenet', 'Facenet2018', 'VGGFace', 'VGGFace2', 'ArcFace']
+        self.defaults['root_images_dir'] = Path().home() / 'pictures'
+        self.defaults['log_dir'] = (Path().home() / '.faces').as_posix(),  # Default to user home directory
+        self.defaults['log_messages'] = GlobalLogger.INFO
 
-    def __init__(self, identification_model_name: str = 'DeepFace',
-                 face_detector_model_name: str = 'mtcnn',
-                 normalization: str = 'base',
-                 align: bool = True,
-                 enforce_detection: bool = False,
-                 grayscale: bool = False,
-                 silent: bool = False,
-                 distance_metric: str = 'cosine',
-                 log_dir: Path = None,
-                 log_filename: str = '.faces.log',
-                 log_messages = Global_logger.INFO,
-                 log_messages_to_console = True,
-                 force_early_model_build = False,
-                 metadata_dirname: str = '.faces',
-                 metadata_extension: str = '.faces',
-                 image_file_types = ['.jpg', '.JPG', '.jpeg', '.JPEG', '.png', '.PNG']):
+        self.params: dict = {}
+        # Iterate over the default values dictionary.
+        for variable_name, default_value in self.defaults.items():
+            # Get the value of the variable from the params dict.
+            value = params.get(variable_name, default_value)
+            self.params[variable_name] = value
 
-        if Faces.debug:
-            force_early_model_build = True
-            default_log_messages = Global_logger.DEBUG
-        else:
-            default_log_messages = log_messages
+        self.root_images_dir = self.params["root_images_dir"]
+        self.identification_model_name = self.params["identification_model_name"]
+        self.face_detector_model_name = self.params["face_detector_model_name"]
+        self.normalization = self.params["normalization"]
+        self.grayscale = self.params["grayscale"]
+        self.align = self.params["align"]
+        self.silent = self.params["silent"]
+        self.distance_metric = self.params["distance_metric"]
+        self.use_program_dir_for_logs = self.params["use_program_dir_for_logs"]
+        self.log_dir = self.params["log_dir"]
+        self.log_filename = self.params["log_filename"]
+        self.log_messages = self.params["log_messages"]
+        self.log_messages_to_console = self.params["log_messages_to_console"]
+        self.force_early_model_build = self.params["force_early_model_build"]
+        self.metadata_dirname = self.params["metadata_dirname"]
+        self.metadata_extension = self.params["metadata_extension"]
+        self.image_file_types = self.params["image_file_types"]
+        self.debug = self.params["debug"]
+        self.debug_max_files_to_process = self.params["debug_max_files_to_process"]
+        self.debug_max_faces_to_process = self.params["debug_max_faces_to_process"]
+        self.debug_use_deepface_represent = self.params["debug_use_deepface_represent"]
 
-        self.logger_config = Global_logger(root_dir=log_dir, filename=log_filename,
-                                           log_messages=default_log_messages,
-                                           log_messages_to_console=log_messages_to_console)
+        self.root_images_dir: Path = Path(self.root_images_dir)
+        assert self.root_images_dir.exists(), \
+            f'Pictures directory {self.root_images_dir.as_posix()} does not exist.'
+        if self.use_program_dir_for_logs:
+            # overrides default of using home dir or any other assigned log_dir value
+            self.log_dir: Path = Path(__file__).parent
+        if self.debug:
+            self.log_messages = GlobalLogger.DEBUG
+
+        # from DeepFace
+        self.identification_model_names: list[str] = [
+            'VGG-Face', 'Facenet', 'Facenet512', 'OpenFace', 'DeepFace', 'DeepID',
+            'Dlib', 'ArcFace', 'SFace']
+        identify_string: str = ", ".join(string for string in self.identification_model_names)
+        assert self.identification_model_name in self.identification_model_names, \
+            f'Invalid face identification model: {self.identification_model_name}. Valid values are {identify_string}'
+
+        # from DeepFace functions
+        self.face_detectors = [
+            'opencv',
+            'ssd',
+            'dlib',
+            'mtcnn',
+            'retinaface',
+            'mediapipe',
+            'yolov8',
+            'yunet']
+        detect_string: str = ", ".join(string for string in self.face_detectors)
+        assert self.face_detector_model_name in self.face_detectors, \
+            f'Invalid face identification model: {self.face_detector_model_name}. Valid values are {detect_string}'
+                        
+        # from DeepFace functions
+        self.normalizations: str = ['base', 'raw', 'Facenet', 'Facenet2018', 'VGGFace', 'VGGFace2', 'ArcFace']
+        norms_string: str = ", ".join(string for string in self.normalizations)
+        assert self.normalization in self.normalizations, \
+            f'Invalid face identification model: {self.normalizations}. Valid values are {norms_string}'
+
+        self.logger_config = GlobalLogger(root_dir=self.log_dir, filename=self.log_filename,
+                                        log_messages=self.log_messages,
+                                        log_messages_to_console=self.log_messages_to_console)
         self.log = self.logger_config.global_logger
 
         self.log.info('\n\n---------- Starting FACES ----------------------------------------------------\n\n')
-
-        self.metadata_dirname = metadata_dirname
-        self.metadata_extension = metadata_extension
-        self.image_file_types = image_file_types
-
-        self.identification_model_name = identification_model_name
-        self.face_detector_model_name = face_detector_model_name  # DeepFace calls this detector_backend
+        self.enforce_detection: bool = False
         self.face_detector_model = None
         self.identification_model = None
-        if force_early_model_build:
+        if self.force_early_model_build:
             self.face_detector_model = self.get_face_detector_model()
             self.identification_model = self.get_identification_model()
-        self.target_size: tuple[int,int] = functions.find_target_size(model_name=identification_model_name)
-        if face_detector_model_name not in Faces.face_detectors:
-            error_msg: str = f'Invalid face detector backend: {face_detector_model_name}'
+        self.target_size: tuple[int,int] = functions.find_target_size(model_name=self.identification_model_name)
+        if self.face_detector_model_name not in self.face_detectors:
+            error_msg: str = f'Invalid face detector backend: {self.face_detector_model_name}'
             self.log.error(error_msg)
             raise ValueError(error_msg)
-        self.normalization = normalization
-        self.align = align
-        self.enforce_detection = enforce_detection
-        self.grayscale = grayscale
-        self.silent: bool = silent
-        self.distance_metric: str = distance_metric
     # end __init__
 
     def close(self):
@@ -169,7 +205,7 @@ class Faces:
     def get_from_imagefile(self,
                                filepath: Path) -> list[dict]:
         self.log.info(f'Finding faces from image: {str(filepath)}\n')
-        if Faces.debug_use_deepface_represent:
+        if self.debug_use_deepface_represent:
             start_time = time.time()
             self.log.info(f'Starting DeepFace.represent at time: {start_time}')
             faces: list[dict] = DeepFace.represent(
@@ -222,7 +258,7 @@ class Faces:
     def get_from_filelist(self, filepaths: list[Path]) -> list[tuple[Path, list[dict]]]:
         fp_faces: list[tuple[Path, list[dict]]] = []
         for file_count, filepath in enumerate(filepaths):
-            if Faces.debug and (file_count > Faces.debug_max_files_to_process):
+            if self.debug and (file_count > self.debug_max_files_to_process):
                 break
             fp_faces_found: tuple[Path, list[dict]] = (filepath, self.get_from_imagefile(filepath))
             fp_faces.extend(fp_faces_found)
@@ -264,21 +300,20 @@ class Faces:
         return path.name.startswith('.')
     # end is_hidden()
 
-    def find(self, dir_path: Path, timeit = False) -> dict[str, int]:
+    def find_faces(self, dir_path: Path) -> dict[str, int]:
         self.log.info('\nStarting find faces...\n')
-        if timeit:
-            find_faces_start_time = time.time()
+        find_faces_start_time = time.time()
 
         counts = {'faces': 0, 'files': 0}
 
         for image_fp in dir_path.iterdir():
             if image_fp.is_dir():
-                if not Faces.is_hidden(image_fp): # Don't traverse hidden directories
-                    sub_counts = self.find(image_fp)
+                if not self.is_hidden(image_fp): # Don't traverse hidden directories
+                    sub_counts = self.find_faces(image_fp)
                     counts['faces'] += sub_counts['faces']
                     counts['files'] += sub_counts['files']
             elif image_fp.is_file():
-                if image_fp.suffix in self.image_file_types:
+                if str(image_fp.suffix).lower() in self.image_file_types:
                     face_filepath: Path = self.generate_metadata_filepath_name(dir_path / self.metadata_dirname, image_fp)
                     if not face_filepath.exists(): # If exists, faces were already found in an earlier run
                         new_faces = self.get_from_imagefile(image_fp)
@@ -287,7 +322,7 @@ class Faces:
                             Faces.save_faces(face_filepath, new_faces)
                             counts['faces'] += len(new_faces)
                         counts['files'] += 1
-                        if Faces.debug and ((counts['files'] >= Faces.debug_max_files_to_process) or (counts['faces'] >= Faces.debug_max_faces_to_process)):
+                        if self.debug and ((counts['files'] >= self.debug_max_files_to_process) or (counts['faces'] >= self.debug_max_faces_to_process)):
                             break
                         # end if
                     # end if
@@ -297,14 +332,15 @@ class Faces:
                 pass
             #end if
         # end for
-        if timeit:
-            find_faces_end_time = time.time()
-            find_faces_run_time = find_faces_end_time - find_faces_start_time
-        else:
-            find_faces_run_time = 'time not measured'
+        find_faces_end_time = time.time()
+        find_faces_run_time = find_faces_end_time - find_faces_start_time
         self.log.info(f"Found {counts['faces']} new face(s) from {counts['files']} new file(s) in {find_faces_run_time} seconds.\n")
         return counts
-    # end find
+    # end find_faces
+
+    def find(self):
+        self.find_faces(self.root_images_dir)
+    # end find()
 
     def identify(self, dir_path:Path) -> None:
         pass
@@ -313,18 +349,17 @@ class Faces:
 # end class Faces
 
 def main():
-    if 'arm64' in platform.platform():
-        root_dir: Path = Path("/Users/raul/Pictures/test/test_small")
-    else:
-        root_dir: Path = Path("/home/raul/raul/test/test_small")
-    
-    log_dir: Path = root_dir
+    operating_parameters_filename: str = 'faces_parameters.json'
 
-    assert root_dir.is_absolute(), 'Error: Source and database paths must be absolute paths.'
+    operating_parameters_path = Path(__file__).parent / operating_parameters_filename
+    with operating_parameters_path.open('r') as params_file:
+        params = json.load(params_file)
 
-    faces: Faces = Faces(log_dir=log_dir)
+    faces: Faces = Faces(params)
 
-    faces.find(root_dir, timeit=True)
+    faces.find()
+
+    faces.identify()
 
     faces.close()
     return
