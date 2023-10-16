@@ -1,0 +1,10 @@
+using pywebio, write a python class that
+1. receives images one by one from an iterator or a callback function, whichever is easier.
+   The iterator object is called traverser, and the callback function is called traverser.next_file().
+   The traverser and the class Traverser are already implemented, so you can use them to instantiate
+   traverser=Traverser(dir_path) and don't need to generate any code for them.
+2. Displays each image in a browser window with an area below the image to enter text. The area is
+   called "Face name: ", and the user enters the text. If the text is not filled in, return empty string.
+3. Place two buttons below the image: one button is labelled "Next image" and the other button is labelled "Quit"
+4. If the user presses Next image before entering anything, return empty string.
+5. If the user enters some text, return the text as a string to the program and store the string in a list of strings.

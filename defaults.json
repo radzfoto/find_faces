@@ -3,6 +3,7 @@
     "identification_model_name": "DeepFace",
     "face_detector_model_name": "mtcnn",
     "normalization": "base",
+    "grayscale": false,
     "align": true,
     "silent": false,
     "distance_metric": "cosine",

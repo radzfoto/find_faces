@@ -8,6 +8,8 @@ from deepface.detectors import FaceDetector
 from deepface.commons import functions
 import time
 import cv2
+import fnmatch
+from traverser import Traverser
 
 class Faces:
 
@@ -29,9 +31,9 @@ class Faces:
             "log_messages": null,
             "log_messages_to_console": false,
             "force_early_model_build": false,
-            "metadata_dirname": "metadata",
+            "metadata_dirname": ".faces",
             "metadata_extension": ".json",
-            "image_file_types": [".jpg", ".jpeg", ".png"],
+            "image_file_types": [".jpg", ".jpeg", ".png", ".JPG", ".JPEG", ".PNG"],
             "debug": false,
             "debug_max_files_to_process": 1000000000,
             "debug_max_faces_to_process": 1000000000,
@@ -80,6 +82,8 @@ class Faces:
             self.log_dir: Path = Path(__file__).parent
         if self.debug:
             self.log_messages = GlobalLogger.DEBUG
+
+        self.image_file_types_glob = '|'.join(f'*{ext}' for ext in self.image_file_types)
 
         # from DeepFace
         self.identification_model_names: list[str] = [
@@ -202,8 +206,7 @@ class Faces:
         return resized_image
     # end resize_to_target()
 
-    def get_from_imagefile(self,
-                               filepath: Path) -> list[dict]:
+    def get_from_imagefile(self, filepath: Path) -> list[dict]:
         self.log.info(f'Finding faces from image: {str(filepath)}\n')
         if self.debug_use_deepface_represent:
             start_time = time.time()
@@ -276,7 +279,7 @@ class Faces:
     def generate_metadata_filepath_name(self, metadata_dir: Path, image_filepath: Path) -> Path:
         face_filepath = metadata_dir / f'{image_filepath.name}{self.metadata_extension}'
         return face_filepath
-    # end generate_metadata_filepath_name
+    # end generate_metadata_filepath_name()
 
     @classmethod
     def save_faces(cls, metadata_filepath: Path, faces: list[dict]) -> None:
@@ -284,7 +287,7 @@ class Faces:
 
         with metadata_filepath.open('w') as md_fp:
             md_fp.write(json_string)
-    # end save_faces
+    # end save_faces()
 
     @classmethod
     def get_saved_faces(cls, metadata_filepath: Path, faces: list[dict]) -> list[dict]:
@@ -293,7 +296,7 @@ class Faces:
         with metadata_filepath.open("r") as md_fp:
             faces = json.load(md_fp)
         return faces
-    # end get_saved_faces
+    # end get_saved_faces()
 
     @classmethod
     def is_hidden(cls, path: Path) -> bool:
@@ -338,11 +341,52 @@ class Faces:
         return counts
     # end find_faces
 
+    def view_faces(self, dir_path: Path) -> dict[str, int]:
+        self.log.info('\nStart view faces...\n')
+        view_faces_start_time = time.time()
+
+        dirs = Traverser(dir_path, is_dir_iterator=True)
+
+        counts = {'faces': 0, 'files': 0}
+
+        for dir in dirs:
+            metadata_path: Path = dir / self.metadata_dirname
+            if metadata_path.exists():
+                metadata_files = Traverser(metadata_path, match_files='*.json')
+                for metadata_fp in metadata_files:
+                    image_path = metadata_fp.parent.parent / Path(metadata_fp.name).stem
+                    if not image_path.exists():
+                        # Somehow the image file that corresponds to this metadata was deleted, so clean up
+                        metadata_fp.unlink()
+                    else:
+                        self.log.info(f'Viewing faces in image: {image_path.as_posix()}')
+                        counts['files'] += 1
+            #end if
+        # end for
+        view_faces_end_time = time.time()
+        view_faces_run_time = view_faces_end_time - view_faces_start_time
+        self.log.info(f"Viewed {counts['faces']} face(s) from {counts['files']} file(s) in {view_faces_run_time}} seconds.\n")
+        return counts
+    # end view_faces
+
+    def identify_faces(self, dir_path: Path) -> dict[str, int]:
+        self.log.info('\nStarting identify faces...\n')
+        identify_faces_start_time = time.time()
+
+        counts = {'faces': 0, 'files': 0}
+
+        identify_faces_end_time = time.time()
+        identify_faces_run_time = identify_faces_end_time - identify_faces_start_time
+        self.log.info(f"Identified {counts['faces']} new face(s) from {counts['files']} new file(s) in {identify_faces_run_time} seconds.\n")
+        return counts
+    # end identify_faces
+
     def find(self):
         self.find_faces(self.root_images_dir)
     # end find()
 
-    def identify(self, dir_path:Path) -> None:
+    def identify(self) -> None:
+        self.identify_faces(self.root_images_dir)
         pass
     # end identify
 
