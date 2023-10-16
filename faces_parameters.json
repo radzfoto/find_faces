@@ -1,6 +1,5 @@
 {
-    "root_images_dir": "/Users/raul/pics_test/test_small",
-    "root_images_dir_mac": "/Users/raul/pics_test/test_small",
+    "root_images_dir": "pics_test/test_small",
     "use_program_dir_for_logs": true,
     "log_messages_to_console": true,
     "force_early_model_build": false,

@@ -75,8 +75,11 @@ class Faces:
         self.debug_use_deepface_represent = self.params["debug_use_deepface_represent"]
 
         self.root_images_dir: Path = Path(self.root_images_dir)
+        if not self.root_images_dir.is_absolute():
+            self.root_images_dir = Path.home() / self.root_images_dir
         assert self.root_images_dir.exists(), \
             f'Pictures directory {self.root_images_dir.as_posix()} does not exist.'
+        
         if self.use_program_dir_for_logs:
             # overrides default of using home dir or any other assigned log_dir value
             self.log_dir: Path = Path(__file__).parent
@@ -356,7 +359,7 @@ class Faces:
                 for metadata_fp in metadata_files:
                     image_path = metadata_fp.parent.parent / Path(metadata_fp.name).stem
                     if not image_path.exists():
-                        # Somehow the image file that corresponds to this metadata was deleted, so clean up
+                        # The image file that corresponds to this metadata must have been deleted, so remove the metadata associated with that file
                         metadata_fp.unlink()
                     else:
                         self.log.info(f'Viewing faces in image: {image_path.as_posix()}')
