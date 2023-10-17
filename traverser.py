@@ -1,5 +1,3 @@
-
-
 from ast import Call
 from typing import Any, Pattern, Callable, Iterator
 from pathlib import Path
@@ -63,22 +61,6 @@ class Traverser:
         self._files_indicator:bool = False                                                                                                            
         self._ignore_dirs: list[str] = ignore_dirs                                                                                                          
         self._ignore_files: list[str] = ignore_files
-
-        self.log_dir: Path = log_dir
-        if log_dir == Path():
-            if self.debug:
-                # overrides default of using home dir or any other assigned log_dir value
-                self.log_dir = Path(__file__).parent
-            else:
-                self.log_dir = Path().home()
-
-        candidate_log_message: int = GlobalLogger.INFO
-        if self.debug:
-            candidate_log_message: int = GlobalLogger.DEBUG
-        self._logger_config = GlobalLogger(root_dir=self.log_dir, filename=log_filename,
-                                           log_messages=candidate_log_message,
-                                           log_messages_to_console=must_log_messages_to_console)
-        self._log = self._logger_config.global_logger
 
         if self._is_dir_iterator:
             self._gets_files_in_curr_dir: bool = True   
@@ -178,35 +160,43 @@ class Traverser:
         else:
             return self._iterate_files(no_stop_iteration=True)
     # end next_file()
-
-    @property
-    def log(self):
-        return self._log
-
 # end class TreeTraverser()
 
 class ImageNavigator:
     def __init__(self, traverser: Traverser, on_name: Callable) -> None:
+        logging_info = GlobalLogger()
+        log = logging_info.global_logger
+
         self.traverser: Traverser = traverser
         self.on_name = on_name
-        self.current_image_data = None
+        self.current_image_data = Path()
+    # end __init__()
 
-    def display_image(self):
+    def display_image(self) -> None:
         for i in range(1000):
-            self.current_image_data = next(self.traverser)
+            self.current_image_data: Path = next(self.traverser)
+    # end display_image()
 # end class ImageNavigator
 
-def test():
-    def run_test(traverser: Traverser, log) -> int:
+def test() -> None:
+    def run_test(traverser: Traverser) -> int:
+        logging_info = GlobalLogger()
+        log = logging_info.global_logger
         counter = 0
         for file in traverser:
-            log(file.as_posix())
+            log.info(file.as_posix())
             counter += 1
             if counter > (max_dir_count_allowed*max_file_count_allowed):
                 break
         return counter
     # end run_test()
 
+    logger_config = GlobalLogger(log_dir=Path(__file__).parent,
+                                        log_filename='traverser.log',
+                                        log_level=GlobalLogger.DEBUG,
+                                        log_messages_to_console=True)
+    log = logger_config.global_logger
+    log.info('****--------- Starting Traverser Tests -------------***')
 
     # Create test dir tree
     root_dir: Path = Path(__file__).parent / 'test_traverser'
@@ -244,32 +234,33 @@ def test():
     max_file_count_allowed: int = 100  # For testing to prevent infinite loops and long tests
 
     # Alternative test: root_dir = Path().home() / Path('pics_test/test_small'
-    tr = Traverser(root_dir) # Only used to print log messages. Kind of lazy, but works
     all_dir_traverser = Traverser(root_dir, ignore_all_hidden=False, is_dir_iterator=True)
     dir_traverser = Traverser(root_dir=root_dir, is_dir_iterator=True)
     all_file_traverser = Traverser(root_dir, ignore_all_hidden=False)
     file_traverser = Traverser(root_dir)
     file_cur_dir_traverser = Traverser(root_dir, ignore_all_hidden=False, gets_files_in_curr_dir=True)
 
-    tr.log.info('------------- Start all_dir_traverser')
-    run_test(all_dir_traverser, tr.log.info)
-    tr.log.info('------------- End all_dir_traverser')
+    log.info('------------- Start all_dir_traverser')
+    run_test(all_dir_traverser)
+    log.info('------------- End all_dir_traverser')
 
-    tr.log.info('------------- Start dir_traverser')
-    run_test(dir_traverser, tr.log.info)
-    tr.log.info('------------- End dir_traverser')
+    log.info('------------- Start dir_traverser')
+    run_test(dir_traverser)
+    log.info('------------- End dir_traverser')
 
-    tr.log.info('------------- Start all_file_traverser')
-    run_test(all_file_traverser, tr.log.info)
-    tr.log.info('------------- End all_file_traverser')
+    log.info('------------- Start all_file_traverser')
+    run_test(all_file_traverser)
+    log.info('------------- End all_file_traverser')
 
-    tr.log.info('------------- Start file_traverser')
-    run_test(all_file_traverser, tr.log.info)
-    tr.log.info('------------- End file_traverser')
+    log.info('------------- Start file_traverser')
+    run_test(file_traverser)
+    log.info('------------- End file_traverser')
 
-    tr.log.info('------------- Start file_cur_dir_traverser')
-    run_test(file_cur_dir_traverser, tr.log.info)
-    tr.log.info('------------- End file_cur_dir traverser')
+    log.info('------------- Start file_cur_dir_traverser')
+    run_test(file_cur_dir_traverser)
+    log.info('------------- End file_cur_dir traverser')
+
+    log.info('****--------- Completed Traverser Tests -------------***')
     
     return
 # end test()
