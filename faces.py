@@ -13,7 +13,7 @@ from traverser import Traverser
 
 class Faces:
 
-    def __init__(self, params: dict):
+    def __init__(self, params: dict) -> None:
 
         defaults_json_string = """
         {
@@ -84,9 +84,9 @@ class Faces:
             # overrides default of using home dir or any other assigned log_dir value
             self.log_dir: Path = Path(__file__).parent
         if self.debug:
-            self.log_messages = GlobalLogger.DEBUG
+            self.log_messages: int = GlobalLogger.DEBUG
 
-        self.image_file_types_glob = '|'.join(f'*{ext}' for ext in self.image_file_types)
+        self.image_file_types_glob: str = '|'.join(f'*{ext}' for ext in self.image_file_types)
 
         # from DeepFace
         self.identification_model_names: list[str] = [
@@ -97,7 +97,7 @@ class Faces:
             f'Invalid face identification model: {self.identification_model_name}. Valid values are {identify_string}'
 
         # from DeepFace functions
-        self.face_detectors = [
+        self.face_detectors: list[str] = [
             'opencv',
             'ssd',
             'dlib',
@@ -111,7 +111,7 @@ class Faces:
             f'Invalid face identification model: {self.face_detector_model_name}. Valid values are {detect_string}'
                         
         # from DeepFace functions
-        self.normalizations: str = ['base', 'raw', 'Facenet', 'Facenet2018', 'VGGFace', 'VGGFace2', 'ArcFace']
+        self.normalizations: list[str] = ['base', 'raw', 'Facenet', 'Facenet2018', 'VGGFace', 'VGGFace2', 'ArcFace']
         norms_string: str = ", ".join(string for string in self.normalizations)
         assert self.normalization in self.normalizations, \
             f'Invalid face identification model: {self.normalizations}. Valid values are {norms_string}'
@@ -368,7 +368,7 @@ class Faces:
         # end for
         view_faces_end_time = time.time()
         view_faces_run_time = view_faces_end_time - view_faces_start_time
-        self.log.info(f"Viewed {counts['faces']} face(s) from {counts['files']} file(s) in {view_faces_run_time}} seconds.\n")
+        self.log.info(f"Viewed {counts['faces']} face(s) from {counts['files']} file(s) in {view_faces_run_time} seconds.\n")
         return counts
     # end view_faces
 

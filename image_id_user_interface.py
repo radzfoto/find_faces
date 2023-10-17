@@ -4,6 +4,12 @@ from pywebio.input import input
 from pywebio.output import put_image, put_buttons, put_text
 from pywebio.platform.tornado import start_server
 from traverser import Traverser
+from global_logger import GlobalLogger
+
+logger_config = GlobalLogger(root_dir=Path(__file__).parent, filename='UI_logfile.log',
+                                log_messages=GlobalLogger.DEBUG,
+                                log_messages_to_console=True)
+log = logger_config.global_logger
 
 class ImageNavigator:
     def __init__(self, traverser, on_name):

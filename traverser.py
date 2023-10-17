@@ -1,8 +1,11 @@
 
 
+from ast import Call
+from typing import Any, Pattern, Callable, Iterator
 from pathlib import Path
 import re
 import fnmatch
+from global_logger import GlobalLogger
 
 class Traverser:
     # USAGE: instantiate a Traverser object such as traverer = Traverser(/dirtree/to/traverse)
@@ -35,150 +38,238 @@ class Traverser:
                  root_dir: Path,
                  match_dirs: str = '*', 
                  match_files: str = '*', 
-                 ignore_hidden:bool=True,
-                 ignore_hidden_files:bool=None,
-                 ignore_hidden_dirs:bool=None,
+                 ignore_all_hidden: bool = True,
+                 ignore_hidden_files: bool = True,
+                 ignore_hidden_dirs: bool = True,
                  ignore_dirs: list[str] = ['.DS_Store'], 
                  ignore_files: list[str] = ['.DS_Store'],
-                 is_dir_iterator = False,  # True makes this a file iterator, False makes this a directory iterator
-                 gets_files_in_curr_dir = False): # next_file and file iterator only iterate over the current directory
+                 is_dir_iterator: bool = False,  # True makes this a file iterator, False makes this a directory iterator
+                 gets_files_in_curr_dir: bool = False, # next_file and file iterator only iterate over the current directory
+                 log_dir: Path = Path(),
+                 log_filename: str = 'traverser.log',
+                 log_messages_to_console: bool = False) -> None: 
 
-        self._is_dir_iterator = is_dir_iterator
+        # ENABLE DEBUG MODE
+        self.debug: bool = True
+        must_log_messages_to_console: bool = log_messages_to_console
+        if self.debug:
+            must_log_messages_to_console = True
+
+        self._is_dir_iterator: bool = is_dir_iterator
         self._gets_files_in_curr_dir: bool = gets_files_in_curr_dir                                         
         self._directories: list[Path] = [root_dir]                                                                                                          
-        self._current_dir: Path = None                                                                                                                 
-        self._files_in_current_dir = None                                                                                                        
+        self._current_dir: Path = Path()                                                                                                                 
+        self._files_in_current_dir: list[Path] = []                                                                                                        
         self._files_indicator:bool = False                                                                                                            
-        self._ignore_dirs:bool = ignore_dirs                                                                                                          
-        self._ignore_files:bool = ignore_files   
+        self._ignore_dirs: list[str] = ignore_dirs                                                                                                          
+        self._ignore_files: list[str] = ignore_files
+
+        self.log_dir: Path = log_dir
+        if log_dir == Path():
+            if self.debug:
+                # overrides default of using home dir or any other assigned log_dir value
+                self.log_dir = Path(__file__).parent
+            else:
+                self.log_dir = Path().home()
+
+        candidate_log_message: int = GlobalLogger.INFO
+        if self.debug:
+            candidate_log_message: int = GlobalLogger.DEBUG
+        self._logger_config = GlobalLogger(root_dir=self.log_dir, filename=log_filename,
+                                           log_messages=candidate_log_message,
+                                           log_messages_to_console=must_log_messages_to_console)
+        self._log = self._logger_config.global_logger
 
         if self._is_dir_iterator:
             self._gets_files_in_curr_dir: bool = True   
-
-        if ignore_hidden is not None:                                                                                                                       
-            self._ignore_hidden_files = ignore_hidden                                                                                            
-            self._ignore_hidden_dirs = ignore_hidden                                                                                             
-        else:                                                                                                                 
-            self._ignore_hidden_files = (ignore_hidden_files is not None) and ignore_hidden_files                                         
-            self._ignore_hidden_dirs =  (ignore_hidden_dirs is not None) and ignore_hidden_dirs                                                
-        self._match_dirs = re.compile(fnmatch.translate(match_dirs))                                                                             
-        self._match_files = re.compile(fnmatch.translate(match_files))
+                                                                                                                 
+        self._ignore_hidden_files: bool = ignore_hidden_files or ignore_all_hidden                                       
+        self._ignore_hidden_dirs: bool =  ignore_hidden_dirs or ignore_hidden_dirs                                                
+        self._match_dirs: Pattern[str] = re.compile(pattern=fnmatch.translate(pat=match_dirs))                                                                             
+        self._match_files: Pattern[str] = re.compile(pattern=fnmatch.translate(pat=match_files))
     # end __init__()                                                                         
                                                                                                                                                 
-    def _get_next_dir(self):                                                                                                                         
+    def _get_next_dir(self) -> Path:                                                                                                                         
         while self._directories:                                                                                                                
             self._current_dir = self._directories.pop(0)                                                                                         
-            dir_name = str(self._current_dir.name)                                                                                               
+            dir_name : str = self._current_dir.name                                                                                               
             if dir_name in self._ignore_dirs or \
                            (self._ignore_hidden_dirs and dir_name.startswith('.')):                                          
                 continue                                                                                                                        
-            if self._match_dirs.match(dir_name):                                                                                                 
+            if self._match_dirs.match(string=dir_name):                                                                                                 
                 for path in self._current_dir.iterdir():                                                                                         
                     if path.is_dir() and \
                        (path.name not in self._ignore_dirs) and \
                        not (self._ignore_hidden_dirs and not dir_name.startswith('.')):                                                                     
                         self._directories.append(path)                                                                                          
-                self._files_in_current_dir = None                                                                                                
+                self._files_in_current_dir = []                                                                                                
                 self._files_indicator = False                                                                                                    
                 return self._current_dir                                                                                                         
-        return None  
+        return Path()  
     # end _get_next_dir()                                                                                                                           
                                                                                                                                                 
-    def _get_next_file(self):                                                                                                           
+    def _get_next_file(self)-> Path:                                                                                                           
         if not self._files_indicator:
-            if self._current_dir is None:  # This happens if next_file is called before next_dir()
-                self._get_next_dir()                                                                                                           
-            self._files_in_current_dir = [path for path in self._current_dir.iterdir() \
-                                              if path.is_file() and \
-                                                 path.name not in self._ignore_files and \
-                                                 not (self._ignore_hidden_files and path.name.startswith('.')) and \
-                                                 self._match_files.match(path.name)]                                      
+            if self._current_dir == Path():  # This happens if next_file is called before next_dir()
+                self._get_next_dir()                                                                                                       
+            self._files_in_current_dir = [
+                path for path in self._current_dir.iterdir() if \
+                    path.is_file() and \
+                    path.name not in self._ignore_files and \
+                    self._match_files.match(string=path.name) and \
+                    ((self._ignore_hidden_files and not path.name.startswith('.')) or
+                     ((not self._ignore_hidden_files) and path.name.startswith('.')))
+                    ]                                      
             self._files_indicator = True                                                                                                         
-        return self._files_in_current_dir.pop(0) if self._files_in_current_dir else None
+        return self._files_in_current_dir.pop(0)
     # end _get_next_file()
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Path]:
         return self
     # end __iter__()
 
-    def _iterate_dirs(self):
-        next_dir = self._get_next_dir()
+    def _iterate_dirs(self) -> Path:
+        next_dir: Path = self._get_next_dir()
         if next_dir is None:
             raise StopIteration
         return next_dir
     # end _iterate_dirs()
 
-    def _iterate_files(self, no_stop_iteration=False):
-        next_file = self._get_next_file()
+    def _iterate_files(self, no_stop_iteration=False) -> Path:
+        next_file: Path = self._get_next_file()
         if self._gets_files_in_curr_dir:
-            if next_file is None:
+            if next_file == Path():
                 if no_stop_iteration:
-                    return None
+                    return Path()
                 else:
                     raise StopIteration
         else:
-            if next_file is not None:
+            if next_file != Path():
                 return next_file
 
-            next_dir = self._get_next_dir()
-            while next_dir is not None:
+            next_dir: Path = self._get_next_dir()
+            while next_dir != Path():
                 next_file = self._get_next_file()
-                if next_file is not None:
+                if next_file != Path():
                     return next_file
                 next_dir = self._get_next_dir()
 
             if no_stop_iteration:
-                return None
+                return Path()
             else:
                 raise StopIteration
+        return Path()
     # end _iterate_files(self)
 
-    def __next__(self):
+    def __next__(self) -> Path:
         if self._is_dir_iterator:
             return self._iterate_dirs()
         else:
             return self._iterate_files(no_stop_iteration=False)
     # end __next__()
 
-    def next_dir(self):
+    def next_dir(self) -> Path:
         return self._get_next_dir()
     # end next_dir()
 
-    def next_file(self):
+    def next_file(self) -> Path:
         if self._gets_files_in_curr_dir:
             return self._get_next_file()
         else:
             return self._iterate_files(no_stop_iteration=True)
     # end next_file()
 
-    # end __next__()
+    @property
+    def log(self):
+        return self._log
+
 # end class TreeTraverser()
 
+class ImageNavigator:
+    def __init__(self, traverser: Traverser, on_name: Callable) -> None:
+        self.traverser: Traverser = traverser
+        self.on_name = on_name
+        self.current_image_data = None
+
+    def display_image(self):
+        for i in range(1000):
+            self.current_image_data = next(self.traverser)
+# end class ImageNavigator
+
 def test():
-    traverser = Traverser(Path().home() / Path('pics_test/test_small'),
-                                 ignore_hidden=False, is_dir_iterator=True)
+    def run_test(traverser: Traverser, log) -> int:
+        counter = 0
+        for file in traverser:
+            log(file.as_posix())
+            counter += 1
+            if counter > (max_dir_count_allowed*max_file_count_allowed):
+                break
+        return counter
+    # end run_test()
+
+
+    # Create test dir tree
+    root_dir: Path = Path(__file__).parent / 'test_traverser'
+    root_dir.mkdir(exist_ok=True)
+    dir1: Path = root_dir / Path('dir1')
+    dir1.mkdir(exist_ok=True)
+    dir2: Path = root_dir / Path('dir2')
+    dir2.mkdir(exist_ok=True)
+    dir2_1: Path = dir2 / Path('dir2_1')
+    dir2_1.mkdir(exist_ok=True)
+    dir3: Path = root_dir / Path('.dir3')
+    dir3.mkdir(exist_ok=True)
+    dir4: Path = root_dir / Path('.dir4')
+    dir4.mkdir(exist_ok=True)
+
+    with (dir1 / 'file1_1').open('w') as f:
+        f.write('Some text')
+    
+    with (dir1 / 'file1_2').open('w') as f:
+        f.write('Some text')
+
+    with (dir1 / 'file1_3').open('w') as f:
+        f.write('Some text')
+
+    with (dir1 / '.file1_4').open('w') as f:
+        f.write('Some text')
+
+    with (dir2 / 'file2_1').open('w') as f:
+        f.write('Some text')
+
+    with (dir4 / '.file4_1').open('w') as f:
+        f.write('Some text')
+
     max_dir_count_allowed: int = 50  # For testing to prevent infinite loops and long tests
     max_file_count_allowed: int = 100  # For testing to prevent infinite loops and long tests
-    # for dir_counter in range(max_dir_count_allowed):
-    #     # Traverse directories
-    #     next_dir = traverser.next_dir()
-    #     if next_dir is None:
-    #         break
-    #     print(f"Directory: {next_dir.as_posix()}")
 
-    #     # Traverse files in the current directory
-    #     for file_counter in range(max_file_count_allowed):
-    #         next_file = traverser.next_file()
-    #         if next_file is None:
-    #             break
-    #         print(f"File: {next_file.as_posix()}")
-    
-    counter = 0
-    for file in traverser:
-        print(file.as_posix())
-        counter += 1
-        if counter > (max_dir_count_allowed*max_file_count_allowed):
-            break
+    # Alternative test: root_dir = Path().home() / Path('pics_test/test_small'
+    tr = Traverser(root_dir) # Only used to print log messages. Kind of lazy, but works
+    all_dir_traverser = Traverser(root_dir, ignore_all_hidden=False, is_dir_iterator=True)
+    dir_traverser = Traverser(root_dir=root_dir, is_dir_iterator=True)
+    all_file_traverser = Traverser(root_dir, ignore_all_hidden=False)
+    file_traverser = Traverser(root_dir)
+    file_cur_dir_traverser = Traverser(root_dir, ignore_all_hidden=False, gets_files_in_curr_dir=True)
+
+    tr.log.info('------------- Start all_dir_traverser')
+    run_test(all_dir_traverser, tr.log.info)
+    tr.log.info('------------- End all_dir_traverser')
+
+    tr.log.info('------------- Start dir_traverser')
+    run_test(dir_traverser, tr.log.info)
+    tr.log.info('------------- End dir_traverser')
+
+    tr.log.info('------------- Start all_file_traverser')
+    run_test(all_file_traverser, tr.log.info)
+    tr.log.info('------------- End all_file_traverser')
+
+    tr.log.info('------------- Start file_traverser')
+    run_test(all_file_traverser, tr.log.info)
+    tr.log.info('------------- End file_traverser')
+
+    tr.log.info('------------- Start file_cur_dir_traverser')
+    run_test(file_cur_dir_traverser, tr.log.info)
+    tr.log.info('------------- End file_cur_dir traverser')
     
     return
 # end test()

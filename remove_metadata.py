@@ -1,4 +1,3 @@
-import platform
 from pathlib import Path
 import shutil
 
@@ -6,7 +5,7 @@ def is_hidden(path: Path) -> bool:
     return path.name.startswith('.')
 # end is_hidden()
 
-def remove_metadata(dir_path: Path, dirnames_to_delete: list[Path], extensions_to_delete: list[Path]) -> None:
+def remove_metadata(dir_path: Path, dirnames_to_delete: list[Path], extensions_to_delete: list[str]) -> None:
 
     for dirname in dirnames_to_delete:
         fp = dir_path / dirname
@@ -26,12 +25,12 @@ def remove_metadata(dir_path: Path, dirnames_to_delete: list[Path], extensions_t
     return
 # end remove_metadata
 
-def main():
+def main() -> None:
     root_dir: Path = Path().home() / Path("pics_test/test_small")
     
     print('Start removing metadata.')
-    remove_metadata(root_dir,
-                    dirnames_to_delete = ['.faces'],
+    remove_metadata(dir_path=root_dir, 
+                    dirnames_to_delete=[Path('.faces')],
                     extensions_to_delete = ['.faces', '.log'])
     print('Completed removing metadata')
     return
