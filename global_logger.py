@@ -51,6 +51,8 @@ class GlobalLogger:
                 (log_level == logging.CRITICAL)), \
             'ERROR: log_level must be one of logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL'
 
+        self.log_level: int = log_level
+        self._log.setLevel(self.log_level)
         self.formatter = logging.Formatter(format)
 
         # Create and config file_handler
@@ -71,16 +73,23 @@ class GlobalLogger:
 # end class GlobalLogger
 
 
-def test():
+def test() -> None:
     logging_info = GlobalLogger(log_dir=Path(__file__).parent, log_filename = 'global_logger.log',
                                 log_level = GlobalLogger.DEBUG,
                                 log_messages_to_console=True)
     log = logging_info.global_logger
 
-    log.debug('Debug message')
-    log.info('Info message')
-    log.warning('Warning message')
-
+    print(f'DEBUG: {GlobalLogger.DEBUG}, {logging.DEBUG}')
+    print(f'INFO: {GlobalLogger.INFO}, {logging.INFO}')
+    print(f'WARNING: {GlobalLogger.WARNING}, {logging.WARNING}')
+    print(f'ERROR: {GlobalLogger.ERROR}, {logging.ERROR}')
+    print(f'CRITICAL: {GlobalLogger.CRITICAL}, {logging.CRITICAL}')
+    log.debug('Test Debug message')
+    log.info('Test Info message')
+    log.warning('Test Warning message')
+    log.error('Test Error message')
+    log.critical('Test Critical message')
+    return
 # end test()
 
 if __name__ == '__main__':
