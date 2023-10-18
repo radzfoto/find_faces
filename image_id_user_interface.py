@@ -6,13 +6,13 @@ from pywebio.platform.tornado import start_server
 from traverser import Traverser
 from global_logger import GlobalLogger
 
-logger_config = GlobalLogger(root_dir=Path(__file__).parent, filename='UI_logfile.log',
-                                log_messages=GlobalLogger.DEBUG,
-                                log_messages_to_console=True)
-log = logger_config.global_logger
+
 
 class ImageNavigator:
     def __init__(self, traverser, on_name):
+        logging_info = GlobalLogger()
+        log = logging_info.global_logger
+
         self.traverser = traverser
         self.on_name = on_name
         self.current_image_data = None
@@ -56,7 +56,29 @@ def app():
     image_navigator.start(next(traverser))
 # end app()
 
+# class ImageNavigator:
+#     def __init__(self, traverser: Traverser, on_name: Callable) -> None:
+#         logging_info = GlobalLogger()
+#         log = logging_info.global_logger
+
+#         self.traverser: Traverser = traverser
+#         self.on_name = on_name
+#         self.current_image_data = Path()
+#     # end __init__()
+
+#     def display_image(self) -> None:
+#         for i in range(1000):
+#             self.current_image_data: Path = next(self.traverser)
+#     # end display_image()
+# # end class ImageNavigator
+
 def main():
+    logger_config = GlobalLogger(log_dir=Path(__file__).parent,
+                                        log_filename='image_UI.log',
+                                        log_level=GlobalLogger.DEBUG,
+                                        log_messages_to_console=True)
+    log = logger_config.global_logger
+
     start_server(app, port=8080, open_webbrowser=True)
 # end main()
 

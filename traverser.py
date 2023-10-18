@@ -154,22 +154,6 @@ class Traverser:
     # end next_file()
 # end class TreeTraverser()
 
-# class ImageNavigator:
-#     def __init__(self, traverser: Traverser, on_name: Callable) -> None:
-#         logging_info = GlobalLogger()
-#         log = logging_info.global_logger
-
-#         self.traverser: Traverser = traverser
-#         self.on_name = on_name
-#         self.current_image_data = Path()
-#     # end __init__()
-
-#     def display_image(self) -> None:
-#         for i in range(1000):
-#             self.current_image_data: Path = next(self.traverser)
-#     # end display_image()
-# # end class ImageNavigator
-
 def test() -> None:
     def run_test(traverser: Traverser) -> int:
         logging_info = GlobalLogger()
