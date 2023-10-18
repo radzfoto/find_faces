@@ -1,5 +1,4 @@
-from ast import Call
-from typing import Any, Pattern, Callable, Iterator
+from typing import Any, Pattern, Iterator
 from pathlib import Path
 import re
 import fnmatch
