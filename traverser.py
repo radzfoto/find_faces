@@ -199,26 +199,37 @@ class Traverser:
 
 class TestTraverser(unittest.TestCase):
 
-    def setUp(self) -> None:
-        self.root_dir = Path('./test_dir')
-        self.dir_tree = self.create_test_dir_tree(self.root_dir, 'test_dir')
-        return
-    # end setUP()
+    @classmethod
+    def setUpClass(cls):
+        cls.root_dir = Path('./test_dir')
+        cls.create_test_dir_tree(cls.root_dir)
+    # end setUpClass()
 
-    def create_test_dir_tree(self, root_dir: Path, test_dirname: str) -> dict[Path, set[str]]:
-        assert root_dir.name == test_dirname, f'Test scaffold error: invalid test directory {test_dirname}'
-        root_dir.mkdir(exist_ok=True)
+    @classmethod
+    def tearDownClass(cls):
+        # cleanup to delete the test directory
+        for child in reversed(list(cls.root_dir.rglob('*'))):
+            if child.is_file():
+                child.unlink()
+            else:
+                child.rmdir()
+        cls.root_dir.rmdir()
+    # end tearDownClass()
+
+    @classmethod
+    def create_test_dir_tree(cls, root_dir: Path) -> dict[Path, set[str]]:
 
         dir_tree: dict[Path, set[str]] = {}
         dir_tree[root_dir] = set()
         dir_tree[Path(root_dir / 'dir1')] = set(['file1_1', 'file1_2', 'file_1_3', '.file1_4', '.file1_5'])
         dir_tree[Path(root_dir / 'dir2')] = set()
-        dir_tree[Path(root_dir / 'dir2' / 'dir2_1')] = set('file2_1')
+        dir_tree[Path(root_dir / 'dir2' / 'dir2_1')] = set(['file2_1'])
         dir_tree[Path(root_dir / 'dir2' / 'dir2_2')] = set()
         dir_tree[Path(root_dir / 'dir2' / '.dir2_3')] = set()
         dir_tree[Path(root_dir / '.dir3')] = set()
-        dir_tree[Path(root_dir / '.dir4')] = set('.file4_1') 
+        dir_tree[Path(root_dir / '.dir4')] = set(['.file4_1']) 
 
+        root_dir.mkdir(exist_ok=True)
         for dir in dir_tree:
             dir_path: Path = dir
             dir_path.mkdir(exist_ok=True)
@@ -240,6 +251,7 @@ class TestTraverser(unittest.TestCase):
 
         expected_dirs = set([self.root_dir, self.root_dir / 'dir1', self.root_dir / 'dir2', self.root_dir / 'dir2' / 'dir2_1', self.root_dir / 'dir2' / 'dir2_2', self.root_dir / '.dir3', self.root_dir / '.dir4', self.root_dir / 'dir2' / '.dir2_3'])
         self.assertEqual(expected_dirs, actual_dirs)
+        return
     # end test_traverse_only_dirs()
 
     def test_traverse_only_dirs_ignore_hidden(self) -> None:
@@ -250,6 +262,7 @@ class TestTraverser(unittest.TestCase):
 
         expected_dirs = set([self.root_dir, self.root_dir / 'dir1', self.root_dir / 'dir2', self.root_dir / 'dir2' / 'dir2_1', self.root_dir / 'dir2' / 'dir2_2'])
         self.assertEqual(expected_dirs, actual_dirs)
+        return
     # end test_traverse_only_dirs_ignore_hidden()
 
     def test_traverse_only_files(self) -> None:
@@ -260,6 +273,7 @@ class TestTraverser(unittest.TestCase):
 
         expected_files = set([self.root_dir / 'dir1' / 'file1_1', self.root_dir / 'dir1' / 'file1_2', self.root_dir / 'dir1' / 'file_1_3', self.root_dir / 'dir1' / '.file1_4', self.root_dir / 'dir1' / '.file1_5', self.root_dir / 'dir2' / 'dir2_1' / 'file2_1', self.root_dir / '.dir4' / '.file4_1'])
         self.assertEqual(expected_files, actual_files)
+        return
     # end test_traverse_only_files()
 
     def test_traverse_only_files_ignore_hidden(self) -> None:
@@ -270,120 +284,9 @@ class TestTraverser(unittest.TestCase):
 
         expected_files = set([self.root_dir / 'dir1' / 'file1_1', self.root_dir / 'dir1' / 'file1_2', self.root_dir / 'dir1' / 'file_1_3', self.root_dir / 'dir2' / 'dir2_1' / 'file2_1'])
         self.assertEqual(expected_files, actual_files)
+        return
     # end test_traverse_only_files_ignore_hidden()
 # end class TestTraverser
-
-    # def get_all_files_and_directories(path: Path,
-    #                                   only_dirs: bool,
-    #                                   hidden_files: bool, 
-    #                                   hidden_dirs: bool) -> dict[Path, set[str]]:
-    #     dir_tree: dict[Path, set[str]] = {}
-    #     dir_tree[path] = set()
-    #     for item in path.iterdir():
-    #         if item.is_dir():
-    #             if hidden_dirs or (not hidden_dirs and not item.name.startswith('.')):
-    #                 dir_tree = dir_tree | get_all_files_and_directories(item, only_dirs, hidden_files, hidden_dirs)
-    #         else:
-    #             if not only_dirs:
-    #                 if hidden_files or (not hidden_files and not item.name.startswith('.')):
-    #                     dir_tree[item.parent].add(item.name)
-    #     return dir_tree
-    # # end get_all_files_and_directories()
-
-    # def validate_test(dir_tree: dict[Path, set[str]], test_dir: Path) -> bool:
-    #     dirs_on_disk: dict[Path, set[str]] = get_all_files_and_directories(test_dir)
-    #     diff = DeepDiff(dirs_on_disk, dir_tree)
-    #     return diff == {}
-    # # end validate_test()
-
-    # def cleanup_test(directory_path: Path, test_dirname: str) -> None:
-    #     assert directory_path.name == test_dirname, f'Test scaffold error: invalid test directory {test_dirname}'
-    #     if directory_path.exists() and directory_path.is_dir() and (directory_path.name == test_dirname):
-    #         send2trash(directory_path)
-    #     return
-    # # end cleanup_test()
-
-    # def do_traverse(traverser: Traverser) -> dict[Path, set[str]]:
-    #     logging_info = GlobalLogger()
-    #     log = logging_info.global_logger
-    #     counter = 0
-    #     dir_dict: dict[Path, set[str]] = {}
-    #     for file in traverser:
-    #         if file.is_dir():
-    #             log.info(f'Dir: {file.as_posix()}')
-    #             if file not in dir_dict:
-    #                 dir_dict[file] = set()
-    #         elif file.is_file():
-    #             log.info(f'File: {file.as_posix()}')
-    #             if file.parent in dir_dict:
-    #                 dir_dict[file.parent].add(file.name)
-    #             else:
-    #                 dir_dict[file.parent] = set(file.name)
-    #         else:
-    #             log.info(f'Object {file.as_posix()} type unknown.')
-    #         counter += 1
-    #         if counter > (max_dir_count_allowed*max_file_count_allowed):
-    #             break
-    #     return dir_dict
-    # # end do_traverse()
-
-    # logger_config = GlobalLogger(log_dir=Path(__file__).parent,
-    #                                     log_filename='traverser.log',
-    #                                     log_level=GlobalLogger.DEBUG,
-    #                                     log_messages_to_console=True)
-    # log = logger_config.global_logger
-
-    # log.info('****--------- Starting Traverser Tests -------------***')
-
-    # test_dirname: str = 'test_traverser'
-    # root_dir: Path = Path(__file__).parent / test_dirname
-    # # root_dir: Path = Path().home()
-    # dir_tree: dict[Path, set[str]] = create_test_dir_tree(root_dir, test_dirname)
-
-    # max_dir_count_allowed: int = 50  # For testing to prevent infinite loops and long tests
-    # max_file_count_allowed: int = 100  # For testing to prevent infinite loops and long tests
-
-    # # Alternative test: root_dir = Path().home() / Path('pics_test/test_small'
-    # all_dir_traverser = Traverser(root_dir, ignore_hidden={'files': False, 'dirs': False}, is_dir_iterator=True)
-    # dir_traverser = Traverser(root_dir=root_dir, is_dir_iterator=True)
-    # all_file_traverser = Traverser(root_dir, ignore_hidden={'files': False, 'dirs': False})
-    # file_traverser = Traverser(root_dir)
-    # file_cur_dir_traverser = Traverser(root_dir, ignore_hidden={'files': False, 'dirs': False}, gets_files_in_curr_dir=True)
-
-    # log.info('------------- Start all_dir_traverser')
-    # traverse_dict: dict[Path, set[str]] = do_traverse(all_dir_traverser)
-    # dir_scan_dict: dict[Path, set[str]] = get_all_files_and_directories(path=root_dir,
-    #                                                                     only_dirs=True,
-    #                                                                     hidden_dirs=True, 
-    #                                                                     hidden_files=True)
-    # if DeepDiff(traverse_dict, dir_scan_dict) == {}:
-    #     log.error('Failed get all ')
-    # log.info('------------- End all_dir_traverser')
-
-    # log.info('------------- Start dir_traverser')
-    # traverse_dict = do_traverse(dir_traverser)
-    # dir_scan_dict = get_all_files_and_directories(root_dir, )
-    # log.info('------------- End dir_traverser')
-
-    # log.info('------------- Start all_file_traverser')
-    # do_traverse(all_file_traverser)
-    # log.info('------------- End all_file_traverser')
-
-    # log.info('------------- Start file_traverser')
-    # do_traverse(file_traverser)
-    # log.info('------------- End file_traverser')
-
-    # log.info('------------- Start file_cur_dir_traverser')
-    # do_traverse(file_cur_dir_traverser)
-    # log.info('------------- End file_cur_dir traverser')
-
-    # log.info('****--------- Completed Traverser Tests -------------***')
-
-    # validate_test(dir_list)
-    # cleanup_test(root_dir, test_dirname)
-
-    # return
-# end test()
 
 if __name__ == '__main__':
     unittest.main()
