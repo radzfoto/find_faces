@@ -1,3 +1,4 @@
+from typing import Callable, Any
 from pathlib import Path
 import os
 from pywebio.input import input
@@ -6,34 +7,48 @@ from pywebio.platform.tornado import start_server
 from traverser import Traverser
 from global_logger import GlobalLogger
 
+# class ImageNavigator:
+#     def __init__(self, traverser, on_name):
+#         logging_info = GlobalLogger()
+#         log = logging_info.global_logger
+
+#         self.traverser = traverser
+#         self.on_name = on_name
+#         self.current_image_data = None
+
+#     def display_image(self):
+#         put_image(self.current_image_data, format='jpg')
+
+#     def start(self, initial_image_data):
+#         self.current_image_data = initial_image_data
+#         while True:
+#             self.display_image()
+#             name = input("Who is in the picture?", type="text")
+#             self.on_name(name)
+#             action = put_buttons(['Next', 'Quit'], onclick=lambda x: x)
+#             if action == 'Next':
+#                 self.current_image_data = next(self.traverser)
+#             elif action == 'Quit':
+#                 break
 
 
 class ImageNavigator:
-    def __init__(self, traverser, on_name):
+    def __init__(self, traverser: Traverser, on_name: Callable) -> None:
         logging_info = GlobalLogger()
         log = logging_info.global_logger
 
-        self.traverser = traverser
+        self.traverser: Traverser = traverser
         self.on_name = on_name
-        self.current_image_data = None
+        self.current_image_data = Path()
+    # end __init__()
 
-    def display_image(self):
-        put_image(self.current_image_data, format='jpg')
-
-    def start(self, initial_image_data):
-        self.current_image_data = initial_image_data
-        while True:
-            self.display_image()
-            name = input("Who is in the picture?", type="text")
-            self.on_name(name)
-            action = put_buttons(['Next', 'Quit'], onclick=lambda x: x)
-            if action == 'Next':
-                self.current_image_data = next(self.traverser)
-            elif action == 'Quit':
-                break
+    def display_image(self) -> None:
+        for i in range(1000):
+            self.current_image_data: Path = next(self.traverser)
+    # end display_image()
 
 class NameStorer:
-    def __init__(self):
+    def __init__(self) -> None:
         self._names = []
     # end __init__()
 
@@ -55,22 +70,6 @@ def app():
     image_navigator = ImageNavigator(traverser, name_storer.on_name)
     image_navigator.start(next(traverser))
 # end app()
-
-# class ImageNavigator:
-#     def __init__(self, traverser: Traverser, on_name: Callable) -> None:
-#         logging_info = GlobalLogger()
-#         log = logging_info.global_logger
-
-#         self.traverser: Traverser = traverser
-#         self.on_name = on_name
-#         self.current_image_data = Path()
-#     # end __init__()
-
-#     def display_image(self) -> None:
-#         for i in range(1000):
-#             self.current_image_data: Path = next(self.traverser)
-#     # end display_image()
-# # end class ImageNavigator
 
 def main():
     logger_config = GlobalLogger(log_dir=Path(__file__).parent,

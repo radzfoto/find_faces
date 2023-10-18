@@ -1,5 +1,6 @@
 from typing import Any, Pattern, Iterator
 from pathlib import Path
+from send2trash import send2trash
 import re
 import fnmatch
 from global_logger import GlobalLogger
@@ -44,6 +45,33 @@ class Traverser:
         # ENABLE DEBUG MODE
         #self.debug: bool = True
 
+        self._saved_root_dir: Path = root_dir
+        self._saved_match_dirs: str = match_dirs
+        self._saved_match_files = match_files
+        self._saved_ignore_hidden: dict[str, bool] = ignore_hidden
+        self._saved_ignore_list: dict[str, list[str]] = ignore_list
+        self._saved_is_dir_iterator: bool = is_dir_iterator
+        self._saved_gets_files_in_curr_dir: bool = gets_files_in_curr_dir
+
+        self._setup(root_dir,
+                 match_dirs,
+                 match_files,
+                 ignore_hidden,
+                 ignore_list,
+                 is_dir_iterator,
+                 gets_files_in_curr_dir,
+                 )
+    # end __init__()
+
+    def _setup(self,
+                 root_dir: Path,
+                 match_dirs: str,
+                 match_files: str,
+                 ignore_hidden: dict[str, bool],
+                 ignore_list: dict[str, list[str]],
+                 is_dir_iterator: bool,
+                 gets_files_in_curr_dir: bool = False,
+                 ) -> None:
         self._is_dir_iterator: bool = is_dir_iterator
         self._gets_files_in_curr_dir: bool = gets_files_in_curr_dir
         self._directories: list[Path] = [root_dir]
@@ -60,7 +88,7 @@ class Traverser:
         self._ignore_hidden_dirs: bool =  ignore_hidden['dirs']
         self._match_dirs: Pattern[str] = re.compile(pattern=fnmatch.translate(pat=match_dirs))
         self._match_files: Pattern[str] = re.compile(pattern=fnmatch.translate(pat=match_files))
-    # end __init__()
+    # end _setup()
 
     def _get_next_dir(self) -> Path:
         while self._directories:
@@ -152,9 +180,61 @@ class Traverser:
         else:
             return self._iterate_files(no_stop_iteration=True)
     # end next_file()
+
+    def reset(self) -> None:
+        self._setup(root_dir=self._saved_root_dir,
+                    match_dirs=self._saved_match_dirs,
+                    match_files=self._saved_match_files,
+                    ignore_hidden=self._saved_ignore_hidden,
+                    ignore_list=self._saved_ignore_list,
+                    is_dir_iterator=self._saved_is_dir_iterator,
+                    gets_files_in_curr_dir=self._saved_gets_files_in_curr_dir,
+                 )
+        return
+    # end reset()
 # end class TreeTraverser()
 
 def test() -> None:
+    def create_test_dir_tree(dir_path: Path, test_dirname: str) -> None:
+        root_dir: Path = dir_path / test_dirname
+        root_dir.mkdir(exist_ok=True)
+        dir1: Path = root_dir / Path('dir1')
+        dir1.mkdir(exist_ok=True)
+        dir2: Path = root_dir / Path('dir2')
+        dir2.mkdir(exist_ok=True)
+        dir2_1: Path = dir2 / Path('dir2_1')
+        dir2_1.mkdir(exist_ok=True)
+        dir3: Path = root_dir / Path('.dir3')
+        dir3.mkdir(exist_ok=True)
+        dir4: Path = root_dir / Path('.dir4')
+        dir4.mkdir(exist_ok=True)
+
+        with (dir1 / 'file1_1').open('w') as f:
+            f.write('Some text')
+
+        with (dir1 / 'file1_2').open('w') as f:
+            f.write('Some text')
+
+        with (dir1 / 'file1_3').open('w') as f:
+            f.write('Some text')
+
+        with (dir1 / '.file1_4').open('w') as f:
+            f.write('Some text')
+
+        with (dir2 / 'file2_1').open('w') as f:
+            f.write('Some text')
+
+        with (dir4 / '.file4_1').open('w') as f:
+            f.write('Some text')
+        return
+        # end create_test_dir_tree()
+
+    def cleanup_test(directory_path: Path, test_dirname: str) -> None:
+        if directory_path.exists() and directory_path.is_dir() and (directory_path.name == test_dirname):
+            send2trash(directory_path)
+        return
+    # end cleanup_test()
+
     def run_test(traverser: Traverser) -> int:
         logging_info = GlobalLogger()
         log = logging_info.global_logger
@@ -179,38 +259,10 @@ def test() -> None:
     log = logger_config.global_logger
     log.info('****--------- Starting Traverser Tests -------------***')
 
-    # Create test dir tree
-    root_dir: Path = Path(__file__).parent / 'test_traverser'
-    root_dir: Path = Path().home()
-    root_dir.mkdir(exist_ok=True)
-    dir1: Path = root_dir / Path('dir1')
-    dir1.mkdir(exist_ok=True)
-    dir2: Path = root_dir / Path('dir2')
-    dir2.mkdir(exist_ok=True)
-    dir2_1: Path = dir2 / Path('dir2_1')
-    dir2_1.mkdir(exist_ok=True)
-    dir3: Path = root_dir / Path('.dir3')
-    dir3.mkdir(exist_ok=True)
-    dir4: Path = root_dir / Path('.dir4')
-    dir4.mkdir(exist_ok=True)
-
-    with (dir1 / 'file1_1').open('w') as f:
-        f.write('Some text')
-
-    with (dir1 / 'file1_2').open('w') as f:
-        f.write('Some text')
-
-    with (dir1 / 'file1_3').open('w') as f:
-        f.write('Some text')
-
-    with (dir1 / '.file1_4').open('w') as f:
-        f.write('Some text')
-
-    with (dir2 / 'file2_1').open('w') as f:
-        f.write('Some text')
-
-    with (dir4 / '.file4_1').open('w') as f:
-        f.write('Some text')
+    test_dirname: str = 'test_traverser'
+    root_dir: Path = Path(__file__).parent
+    # root_dir: Path = Path().home()
+    create_test_dir_tree(root_dir, test_dirname)
 
     max_dir_count_allowed: int = 50  # For testing to prevent infinite loops and long tests
     max_file_count_allowed: int = 100  # For testing to prevent infinite loops and long tests
@@ -243,6 +295,8 @@ def test() -> None:
     log.info('------------- End file_cur_dir traverser')
 
     log.info('****--------- Completed Traverser Tests -------------***')
+
+    cleanup_test(root_dir, test_dirname)
 
     return
 # end test()
