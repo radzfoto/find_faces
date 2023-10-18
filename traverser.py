@@ -37,7 +37,7 @@ class Traverser:
                  match_dirs: str = '*',
                  match_files: str = '*',
                  ignore_hidden: dict[str, bool] = {'dirs': True, 'files': True},
-                 ignore_list: dict[str, list[str]] = {'dirs': ['.DS_Store'], 'files': ['.DS_Store']},
+                 ignore_list: dict[str, list[str]] = {'dirs': ['.DS_Store', '.Trash'], 'files': ['.DS_Store']},
                  is_dir_iterator: bool = False,  # True makes this a file iterator, False makes this a directory iterator
                  gets_files_in_curr_dir: bool = False, # next_file and file iterator only iterate over the current directory, use next_dir to go to next_dir explicitly
                  ) -> None:
@@ -87,12 +87,16 @@ class Traverser:
                 self._get_next_dir()
             self._files_in_current_dir = [
                 path for path in self._current_dir.iterdir() if \
-                    path.is_file() and path.name not in self._ignore_files and self._match_files.match(string=path.name) and \
-                    ((self._ignore_hidden_files and not path.name.startswith('.')) or
-                     ((not self._ignore_hidden_files) and path.name.startswith('.')))
+                    path.is_file() and (path.name not in self._ignore_files) and self._match_files.match(string=path.name) and
+                    ((self._ignore_hidden_files and not path.name.startswith('.')) or (not self._ignore_hidden_files))
                     ]
             self._files_indicator = True
-        return self._files_in_current_dir.pop(0)
+
+        if len(self._files_in_current_dir) > 0:
+            return self._files_in_current_dir.pop(0)
+        else: # No files found in current dir
+            return Path()
+
     # end _get_next_file()
 
     def __iter__(self) -> Iterator[Path]:
@@ -194,6 +198,7 @@ def test() -> None:
 
     # Create test dir tree
     root_dir: Path = Path(__file__).parent / 'test_traverser'
+    root_dir: Path = Path().home()
     root_dir.mkdir(exist_ok=True)
     dir1: Path = root_dir / Path('dir1')
     dir1.mkdir(exist_ok=True)
