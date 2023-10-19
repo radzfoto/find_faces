@@ -1,4 +1,6 @@
 *.log
 test_traverser/
-
+__pycache__
+**/.DS_Store
+**/.Trash
 
