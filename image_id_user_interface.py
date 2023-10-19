@@ -46,7 +46,10 @@ class ImageNavigator:
         path: Path = next(self.traverser)
         while path != Path():
             self.on_name(path)
-            path = next(self.traverser)
+            try:
+                path = next(self.traverser)
+            except StopIteration:
+                break
     # end scan_imagefiles()
 # end class ImageNavigator
 
@@ -69,19 +72,20 @@ def app():
     image_file_types_glob_list: list[str] = ['*.jpg', '*.jpeg', '*.png']
     name_storer = NameStorer()
     traverser = Traverser(images_dir, match_files=image_file_types_glob_list)
+    test_traverser = Traverser(images_dir, match_files=image_file_types_glob_list)
     print('---------')
-    for p in traverser:
+    for p in test_traverser:
         print(p)
     print('---------')
-    traverser.reset()
     image_navigator = ImageNavigator(traverser, name_storer.on_name)
+    image_navigator.scan_imagefiles()
     name_list = name_storer.get_names()
     for path in name_list:
         print(path)
     # image_navigator.start(next(traverser))
 # end app()
 
-def main():
+def main() -> None:
     logger_config = GlobalLogger(log_dir=Path(__file__).parent,
                                         log_filename='image_UI.log',
                                         log_level=GlobalLogger.DEBUG,
@@ -89,6 +93,7 @@ def main():
     log = logger_config.global_logger
     app()
     # start_server(app, port=8080, open_webbrowser=True)
+    return
 # end main()
 
 if __name__ == "__main__":
