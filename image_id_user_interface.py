@@ -1,6 +1,5 @@
 from typing import Callable, Any
 from pathlib import Path
-import os
 from pywebio.input import input
 from pywebio.output import put_image, put_buttons, put_text
 from pywebio.platform.tornado import start_server
@@ -33,7 +32,7 @@ from global_logger import GlobalLogger
 
 
 class ImageNavigator:
-    def __init__(self, traverser: Traverser, on_name: Callable) -> None:
+    def __init__(self, traverser: Traverser, on_name: Callable[[Path], None]) -> None:
         logging_info = GlobalLogger()
         log = logging_info.global_logger
 
@@ -42,33 +41,44 @@ class ImageNavigator:
         self.current_image_data = Path()
     # end __init__()
 
-    def display_image(self) -> None:
-        for i in range(1000):
-            self.current_image_data: Path = next(self.traverser)
-    # end display_image()
+    def scan_imagefiles(self) -> None:
+        # for image_filepath in self.traverser:
+        path: Path = next(self.traverser)
+        while path != Path():
+            self.on_name(path)
+            path = next(self.traverser)
+    # end scan_imagefiles()
+# end class ImageNavigator
 
 class NameStorer:
     def __init__(self) -> None:
-        self._names = []
+        self._names: list[Path] = []
     # end __init__()
 
-    def on_name(self, name: str):
+    def on_name(self, name: Path) -> None:
         self._names.append(name)
     # end on_name()
 
-    def get_names(self) -> list[str]:
-        return self._names()
+    def get_names(self) -> list[Path]:
+        return self._names
     # end get_names()
-
 # end class NameStorer()
 
 def app():
     images_dir: Path = Path().home() / Path("pics_test/test_small")
-    image_file_types_glob = '|'.join(['.jpg', '.jpeg', '.png', '.JPG', '.JPEG', '.PNG'])
+    image_file_types_glob_list: list[str] = ['*.jpg', '*.jpeg', '*.png']
     name_storer = NameStorer()
-    traverser = Traverser(images_dir, match_files=image_file_types_glob)  # Assumes images are in a directory named 'images'
+    traverser = Traverser(images_dir, match_files=image_file_types_glob_list)
+    print('---------')
+    for p in traverser:
+        print(p)
+    print('---------')
+    traverser.reset()
     image_navigator = ImageNavigator(traverser, name_storer.on_name)
-    image_navigator.start(next(traverser))
+    name_list = name_storer.get_names()
+    for path in name_list:
+        print(path)
+    # image_navigator.start(next(traverser))
 # end app()
 
 def main():
@@ -77,8 +87,8 @@ def main():
                                         log_level=GlobalLogger.DEBUG,
                                         log_messages_to_console=True)
     log = logger_config.global_logger
-
-    start_server(app, port=8080, open_webbrowser=True)
+    app()
+    # start_server(app, port=8080, open_webbrowser=True)
 # end main()
 
 if __name__ == "__main__":

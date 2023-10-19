@@ -34,11 +34,14 @@ class Traverser:
     #
     #       If is_dir_iterator is True, then gets_files_in_curr_dir is also set to True. This allows
     #       the next_file method to be used in conjunction with the directory iterator.
+    #       
+    #       match_dirs and match_files are each a list of single glob expressions such as ['*.jpg', '*.jpeg'].
+    #       Files or directories that match any of glob patterns in the list will be matched
 
     def __init__(self,
                  root_dir: Path,
-                 match_dirs: str = '*',
-                 match_files: str = '*',
+                 match_dirs: list[str] = ['*'],
+                 match_files: list[str] = ['*'],
                  ignore_hidden: dict[str, bool] = {'dirs': True, 'files': True},
                  ignore_list: dict[str, list[str]] = {'dirs': ['.DS_Store', '.Trash'], 'files': ['.DS_Store']},
                  is_dir_iterator: bool = False,  # True makes this a file iterator, False makes this a directory iterator
@@ -49,8 +52,8 @@ class Traverser:
         #self.debug: bool = True
 
         self._saved_root_dir: Path = root_dir
-        self._saved_match_dirs: str = match_dirs
-        self._saved_match_files = match_files
+        self._saved_match_dirs: list[str] = match_dirs
+        self._saved_match_files: list[str] = match_files
         self._saved_ignore_hidden: dict[str, bool] = ignore_hidden
         self._saved_ignore_list: dict[str, list[str]] = ignore_list
         self._saved_is_dir_iterator: bool = is_dir_iterator
@@ -68,8 +71,8 @@ class Traverser:
 
     def _setup(self,
                  root_dir: Path,
-                 match_dirs: str,
-                 match_files: str,
+                 match_dirs: list[str],
+                 match_files: list[str],
                  ignore_hidden: dict[str, bool],
                  ignore_list: dict[str, list[str]],
                  is_dir_iterator: bool,
@@ -89,9 +92,23 @@ class Traverser:
 
         self._ignore_hidden_files: bool = ignore_hidden['files']
         self._ignore_hidden_dirs: bool =  ignore_hidden['dirs']
-        self._match_dirs: Pattern[str] = re.compile(pattern=fnmatch.translate(pat=match_dirs))
-        self._match_files: Pattern[str] = re.compile(pattern=fnmatch.translate(pat=match_files))
+
+        match_dir_pattern: Pattern[str] = self._make_pattern(match_dirs)
+        match_file_pattern: Pattern[str] = self._make_pattern(match_files)
+
+        self._match_dirs: Pattern[str] = match_dir_pattern
+        self._match_files: Pattern[str] = match_file_pattern
     # end _setup()
+
+    def _make_pattern(self, glob_pattern_list: list[str]) -> Pattern[str]:
+        regex_parts: list[str] = [fnmatch.translate(part) for part in glob_pattern_list]
+
+        regex_pattern: str = '|'.join(regex_parts)
+
+        regex: Pattern[str] = re.compile(regex_pattern, re.IGNORECASE)
+
+        return regex
+    # end _make_pattern()
 
     def _get_next_dir(self) -> Path:
         while self._directories:
@@ -115,18 +132,19 @@ class Traverser:
         if not self._files_indicator:
             if self._current_dir == Path():  # This happens if next_file is called before next_dir()
                 self._get_next_dir()
-            self._files_in_current_dir = [
-                path for path in self._current_dir.iterdir() if \
-                    path.is_file() and (path.name not in self._ignore_files) and self._match_files.match(string=path.name) and
-                    ((self._ignore_hidden_files and not path.name.startswith('.')) or (not self._ignore_hidden_files))
-                    ]
+            must_append: bool = False
+            for path in self._current_dir.iterdir():
+                must_append = path.is_file()
+                must_append = must_append and (path.name not in self._ignore_files)
+                must_append = must_append and (self._match_files.match(string=path.name) is not None)
+                must_append = must_append and ((self._ignore_hidden_files and not path.name.startswith('.')) or (not self._ignore_hidden_files))
+                if must_append:
+                    self._files_in_current_dir.append(path)
             self._files_indicator = True
-
         if len(self._files_in_current_dir) > 0:
             return self._files_in_current_dir.pop(0)
         else: # No files found in current dir
             return Path()
-
     # end _get_next_file()
 
     def __iter__(self) -> Iterator[Path]:
