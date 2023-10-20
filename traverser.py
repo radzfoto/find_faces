@@ -3,6 +3,9 @@ from pathlib import Path
 import re
 import fnmatch
 
+class DirTraverser:
+    pass
+
 class Traverser:
     # USAGE: instantiate a Traverser object such as traverer = Traverser(/dirtree/to/traverse)
     #        then call traverse.next_dir() and traverse.next_file() or use the traverser object as an

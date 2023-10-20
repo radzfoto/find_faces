@@ -1,20 +1,23 @@
 from typing import Callable
 from PIL import Image
-import base64
 from io import BytesIO
 from pathlib import Path
 from pywebio.input import input
-from pywebio.output import put_image, put_buttons, put_text
+from pywebio.output import put_image, clear, put_buttons, put_text
 from pywebio.platform.tornado import start_server
+from pywebio.session import hold
 from traverser import Traverser
 from global_logger import GlobalLogger
 
 class NameStorer:
     def __init__(self) -> None:
+        self.logging_info = GlobalLogger()
+        self.log = self.logging_info.global_logger
         self._names: list[str] = []
     # end __init__()
 
     def on_name(self, name: str) -> None:
+        self.log.debug(f'Received name {name}')
         self._names.append(name)
     # end on_name()
 
@@ -32,20 +35,13 @@ class ImageNavigator:
         self.on_name: Callable[[str], None] = on_name
         self.current_image_path: Path = Path()
 
-    def image_path_to_base64(self, image_path: Path, fmt) -> str:
-        with Image.open(image_path.as_posix()) as image:
-            buffered = BytesIO()
-            image.save(buffered, format=fmt)
-            return base64.b64encode(buffered.getvalue()).decode()
-    # end image_path_to_base64()
-
     def pil_to_bytes(self, image: Image.Image, format: str = 'JPEG') -> bytes:
         with BytesIO() as buffer:
             image.save(buffer, format=format)
             return buffer.getvalue()
 
     def display_image(self) -> None:
-        self.log.info(f'Displaying: {self.current_image_path.as_posix()}')
+        self.log.debug(f'Displaying: {self.current_image_path.as_posix()}')
         image: Image.Image = Image.open(self.current_image_path.as_posix())
         assert image is not None, 'Unable to open image file'
         ext = (self.current_image_path.suffix).lower()
@@ -66,23 +62,29 @@ class ImageNavigator:
 
     def start(self):
         # self.current_image_data = initial_image_data
-        action = 'Next'
+        action_container = {'action': 'Next'}
         while True:
-            if action == 'Next':
+            clear()  # Clear the previous content
+            if action_container['action'] == 'Next':
                 try:
                     self.current_image_path: Path = next(self.traverser)
                     self.log.debug(f'Received from traverser: {self.current_image_path}')
                 except StopIteration:
                     break
-            elif action == 'Quit':
+            elif action_container['action'] == 'Quit':
                 break
             else:
                 break
             self.display_image()
             name = input("Who is in the picture?", type="text")
+            self.log.debug(f'About to send name: {str(name)} to on_name callback')
             self.on_name(str(name))
-            action = put_buttons(['Next', 'Quit'], onclick=lambda x: x)
-
+            _ = put_buttons(['Next', 'Quit'], onclick=lambda x: action_container.update({'action': x}))
+            action = input("What would you like to do?", type="radio", options=['Next', 'Quit'])
+            action_container['action'] = str(action)
+        # end while
+        self.log.debug('Exiting ImageNavigator.start')
+        return
 # end class ImageNavigator
 
 def app():
@@ -96,7 +98,7 @@ def app():
     image_navigator.start()
     name_list: list[str] = name_storer.get_names()
     for name in name_list:
-        print(name)
+        print(f'Name list item: {name}')
 # end app()
 
 def main() -> None:
