@@ -1,6 +1,5 @@
-from typing import Callable, Any
+from typing import Callable
 from PIL import Image
-import cv2
 import base64
 from io import BytesIO
 from pathlib import Path
