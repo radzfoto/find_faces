@@ -32,7 +32,8 @@ class Traverser:
     #        be used cautiously. For safety, either use the iterator function or call next_dir
     #        and next_file directly, but not both.
     #
-    #        is_iterator allows iteration on only all dirs in dir tree, only all files in dir tree, or both.
+    #        is_dir_iterator and is_file_iterator together allow iteration on only dirs in dir tree,
+    #        only files in dir tree, or both.
     #       
     #        match_dirs and match_files are each a list of single glob expressions such as ['*.jpg', '*.jpeg'].
     #        Files or directories that match any of glob patterns in the list will be matched
@@ -43,7 +44,8 @@ class Traverser:
                  match_files: list[str] = ['*'],
                  ignore_hidden: dict[str, bool] = {'dirs': True, 'files': True},
                  ignore_list: dict[str, list[str]] = {'dirs': ['.DS_Store', '.Trash'], 'files': ['.DS_Store']},
-                 is_iterator: dict[str, bool] = {'dirs': True, 'files': True}
+                 is_dir_iterator: bool = True,
+                 is_file_iterator: bool = True,
                  ) -> None:
 
         # ENABLE DEBUG MODE
@@ -54,13 +56,18 @@ class Traverser:
         self._saved_match_files: list[str] = match_files
         self._saved_ignore_hidden: dict[str, bool] = ignore_hidden
         self._saved_ignore_list: dict[str, list[str]] = ignore_list
-        self._saved_is_iterator: dict[str, bool] = is_iterator
+        self._saved_is_dir_iterator: bool = is_dir_iterator
+        self._saved_is_file_iterator: bool = is_file_iterator
+        # self._is_iterator: dict[str, bool] = {'dirs': is_dir_iterator, 'files': is_file_iterator}
+        # self._saved_is_iterator: dict[str, bool] = self._is_iterator
 
         self._setup()
     # end __init__()
 
     def _setup(self) -> None:
-        self._is_iterator: dict[str,bool] = self._saved_is_iterator
+        self._is_dir_iterator: bool = self._saved_is_dir_iterator
+        self._is_file_iterator: bool = self._saved_is_file_iterator
+        # self._is_iterator: dict[str,bool] = self._saved_is_iterator
         self._directories: list[Path] = [self._saved_root_dir]
         self._current_dir: Path = Path()
         self._files_in_current_dir: list[Path] = []
@@ -76,7 +83,7 @@ class Traverser:
         self._match_dirs: Pattern[str] = match_dir_pattern
         self._match_files: Pattern[str] = match_file_pattern
 
-        if self._is_iterator['files'] and not self._is_iterator['dirs']:
+        if self._is_file_iterator and not self._is_dir_iterator:
             self._get_next_dir() # Initialize file iterator
     # end _setup()
 
@@ -138,10 +145,10 @@ class Traverser:
     # end _iterate_dirs()
 
     def _iterate_files(self) -> Path:
-        assert self._is_iterator['files'], f'{self.__class__.__name__} instance has disabled file iteration.'
+        assert self._is_file_iterator, f'{self.__class__.__name__} instance has disabled file iteration.'
 
         if self._current_dir == Path():
-            if self._is_iterator['dirs']:
+            if self._is_dir_iterator:
                 return self._iterate_dirs()
             else:
                 self._get_next_dir()
@@ -151,7 +158,7 @@ class Traverser:
         if next_file != Path():
             return next_file
         else:
-            if self._is_iterator['dirs']:
+            if self._is_dir_iterator:
                 return self._iterate_dirs()
             else:
                 next_dir: Path = self._get_next_dir()
@@ -165,11 +172,11 @@ class Traverser:
     # end _iterate_files(self)
 
     def __next__(self) -> Path:
-        if self._is_iterator['dirs'] and not self._is_iterator['files']:
+        if self._is_dir_iterator and not self._is_file_iterator:
             return self._iterate_dirs()
-        elif not self._is_iterator['dirs'] and self._is_iterator['files']:
+        elif not self._is_dir_iterator and self._is_file_iterator:
             return self._iterate_files()
-        elif self._is_iterator['dirs'] and self._is_iterator['files']:
+        elif self._is_dir_iterator and self._is_file_iterator:
             return self._iterate_files()
         else:
             raise StopIteration
@@ -180,10 +187,7 @@ class Traverser:
     # end next_dir()
 
     def next_file(self) -> Path:
-        if self._is_iterator['files']:
-            return self._get_next_file()
-        else:
-            return self._iterate_files()
+        return self._get_next_file()
     # end next_file()
 
     def restart(self) -> None:
@@ -239,7 +243,7 @@ class TestTraverser(unittest.TestCase):
     # end create_test_dir_tree()
 
     def test_traverse_only_dirs(self) -> None:
-        traverser = Traverser(self.root_dir, is_iterator={'dirs': True, 'files': False}, ignore_hidden={'dirs': False, 'files': False})
+        traverser = Traverser(self.root_dir, is_file_iterator=False, ignore_hidden={'dirs': False, 'files': False})
         actual_dirs = set()
         for dir in traverser:
             actual_dirs.add(dir)
@@ -250,7 +254,7 @@ class TestTraverser(unittest.TestCase):
     # end test_traverse_only_dirs()
 
     def test_traverse_only_dirs_ignore_hidden(self) -> None:
-        traverser = Traverser(self.root_dir, is_iterator={'dirs': True, 'files': False})
+        traverser = Traverser(self.root_dir, is_file_iterator=False)
         actual_dirs = set()
         for dir in traverser:
             actual_dirs.add(dir)
@@ -261,7 +265,7 @@ class TestTraverser(unittest.TestCase):
     # end test_traverse_only_dirs_ignore_hidden()
 
     def test_traverse_only_files(self) -> None:
-        traverser = Traverser(self.root_dir, is_iterator={'dirs': False, 'files': True}, ignore_hidden={'dirs': False, 'files': False})
+        traverser = Traverser(self.root_dir, is_dir_iterator=False, ignore_hidden={'dirs': False, 'files': False})
         actual_files = set()
         for file in traverser:
             actual_files.add(file)
@@ -272,7 +276,7 @@ class TestTraverser(unittest.TestCase):
     # end test_traverse_only_files()
 
     def test_traverse_only_files_ignore_hidden(self) -> None:
-        traverser = Traverser(self.root_dir, is_iterator={'dirs': False, 'files': True})
+        traverser = Traverser(self.root_dir, is_dir_iterator=False)
         actual_files = set()
         for file in traverser:
             actual_files.add(file)
