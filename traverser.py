@@ -37,8 +37,8 @@ class DirTraverser:
 
     def __init__(self,
                  root_dir: Path,
-                 match_list: list[str] = ['*'],
                  ignore_hidden: bool = True,
+                 match_list: list[str] = ['*'],
                  ignore_list: list[str] = ['.DS_Store', '.Trash']
                  ) -> None:
 
