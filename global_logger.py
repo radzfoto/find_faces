@@ -1,106 +1,96 @@
 # Copyright (c) Raul Diaz 2023, licensed per terms in LICENSE file in https://github.com/radzfoto/find_faces
 
-import sys
 import logging
 from pathlib import Path
 
-class LogPoolManager:
-    def __init__(self, pool) -> None:
-        self.pool = pool
-        return
-    # end __init__()
+class GlobalLogger:
+    _instance = None
 
-    def __enter__(self):
-        self.obj = self.pool.acquire()
-        return self.obj
-    # end __enter__()
-    
-    def __exit__(self, type, value, traceback) -> None:
-        self.pool.release(self.obj)
-        return
-    # end __exit__()
-# end class LogPoolManager
+    DEBUG: int = logging.DEBUG
+    INFO: int = logging.INFO
+    WARNING: int = logging.WARNING
+    ERROR: int = logging.ERROR
+    CRITICAL: int = logging.CRITICAL
 
-class GlobalLogger(logging.Logger):
+    def __new__(cls,
+                log_dir: Path = Path(),
+                log_filename: str = 'logfile.log',
+                log_level: int = logging.ERROR, 
+                log_messages_to_console: bool = False,
+                format: str = '%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s',
+                debug_mode = False):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance.setup(log_dir, log_filename, format, log_level, log_messages_to_console, debug_mode)
+        return cls._instance
 
-    def __init__(self,
-                 logger_name: str = 'GlobalLogger',
-                 log_level: int = logging.NOTSET
-                 ) -> None:
-        super().__init__(name=logger_name,
-                         level=log_level)
-        # Set the logger class to GlobalLogger
-        logging.setLoggerClass(GlobalLogger)
-        self.__is_configured = False
+    def setup(self, 
+              log_dir: Path, 
+              log_filename: str, 
+              format: str,
+              log_level: int, 
+              log_messages_to_console: bool,
+              debug_mode: bool) -> None:
+        # logging setup logic as you have it in your setup_logging method
+        self._log = logging.getLogger(__name__)
+        # ... rest of your logging setup logic
 
-    def configure(self,
-                 log_dir: Path = Path(),
-                 log_filename: str = 'logfile.log',
-                 log_level: int = logging.NOTSET,
-                 log_format: str = '%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s',
-                 log_to_file: bool = True,
-                 log_to_console: bool = False,
-                 debug_mode: bool = False) -> None:
+        log_root_dir: Path = log_dir
+        if log_dir == Path():
+            if debug_mode:
+                log_root_dir = Path(__file__).parent  # Create default debugging log directory
+            else:
+                log_root_dir = Path.home()  # Create default log directory
 
-        if not self.__is_configured:
-            log_root_dir: Path = log_dir
-            if log_root_dir == Path():
-                if debug_mode:
-                    log_root_dir = Path(__file__).parent  # Create default debugging log directory
-                else:
-                    log_root_dir = Path.home()  # Create default log directory
-            filepath: Path = log_root_dir / log_filename
+        filepath: Path = log_root_dir / log_filename
 
-            self.setLevel(level=log_level)
-            formatter = logging.Formatter(log_format)
+        assert ((log_level == logging.DEBUG) or \
+                (log_level == logging.INFO) or \
+                (log_level == logging.WARNING) or \
+                (log_level == logging.ERROR) or \
+                (log_level == logging.CRITICAL)), \
+            'ERROR: log_level must be one of logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL'
 
-            if log_to_file:
-                file_handler = logging.FileHandler(filepath.as_posix())
-                file_handler.setFormatter(formatter)
-                self.addHandler(file_handler)
+        self.log_level: int = log_level
+        self._log.setLevel(self.log_level)
+        self.formatter = logging.Formatter(format)
 
-            if log_to_console:
-                console_handler = logging.StreamHandler(sys.stdout)
-                console_handler.setFormatter(formatter)
-                self.addHandler(console_handler)
-
-            self.__is_configured = True
-    # end configure()
+        # Create and config file_handler
+        self.file_handler = logging.FileHandler(filepath.as_posix())
+        self.file_handler.setFormatter(self.formatter)
+        self._log.addHandler(self.file_handler)
+        # Create and configure console_handler
+        if log_messages_to_console:
+            self.console_handler = logging.StreamHandler()
+            self.console_handler.setFormatter(self.formatter)
+            self._log.addHandler(self.console_handler)
+    # end setup_logging
 
     @property
-    def is_configured(self) -> bool:
-        return self.__is_configured
-    # end property is_configure()
+    def global_logger(self) -> logging.Logger:
+        return self._log
+
 # end class GlobalLogger
 
-class LoggerPool:
-    def __init__(self, 
-                 logger_name_list: list[str]=['GlobalLogger'], 
-                 log_level=logging.NOTSET) -> None:
-        self.__logger_name_list = logger_name_list
-        self.__free: list[GlobalLogger] = []
-        self.__in_use: list[GlobalLogger] = []
-        for logger_name in self.__logger_name_list:
-            # Create a GlobalLogger instance and append it
-            self.__free.append(GlobalLogger(logger_name, logging.NOTSET))
-        return
-    # end __init__()
-    
-    def acquire(self) -> GlobalLogger:
-        if len(self.__free) <= 0:
-            raise Exception("No loggers available in object pool")
-        r: GlobalLogger = self.__free[0]
-        self.__free.remove(r)
-        self.__in_use.append(r)
-        return r
-    # end acquire()
-    
-    def release(self, r: GlobalLogger) -> None:
-        self.__in_use.remove(r)
-        self.__free.append(r)
-    # end release()
-# end LoggerPool
 
-# logger_pool = LoggerPool(logger_name_list=['GlobalLogger'])
+def test() -> None:
+    logging_info = GlobalLogger(log_dir=Path(__file__).parent, log_filename = 'global_logger.log',
+                                log_level = GlobalLogger.DEBUG,
+                                log_messages_to_console=True)
+    log = logging_info.global_logger
 
-# log = LogPoolManager(logger_pool)
+    print(f'DEBUG: {GlobalLogger.DEBUG}, {logging.DEBUG}')
+    print(f'INFO: {GlobalLogger.INFO}, {logging.INFO}')
+    print(f'WARNING: {GlobalLogger.WARNING}, {logging.WARNING}')
+    print(f'ERROR: {GlobalLogger.ERROR}, {logging.ERROR}')
+    print(f'CRITICAL: {GlobalLogger.CRITICAL}, {logging.CRITICAL}')
+    log.debug('Test Debug message')
+    log.info('Test Info message')
+    log.warning('Test Warning message')
+    log.error('Test Error message')
+    log.critical('Test Critical message')
+    return
+# end test()
+
+if __name__ == '__main__':
+    test()
