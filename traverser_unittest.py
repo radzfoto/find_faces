@@ -1,17 +1,19 @@
 from pathlib import Path
 import unittest
-from traverser import Traverser
+from traverser import DirTraverser, FileTraverser, Traverser
+import logging
+from global_logger import GlobalLogger
 
 class TestTraverser(unittest.TestCase):
 
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.root_dir = Path('./test_dir')
         cls.create_test_dir_tree(cls.root_dir)
     # end setUpClass()
 
     @classmethod
-    def tearDownClass(cls):
+    def tearDownClass(cls) -> None:
         # cleanup to delete the test directory
         for child in reversed(list(cls.root_dir.rglob('*'))):
             if child.is_file():
@@ -47,6 +49,27 @@ class TestTraverser(unittest.TestCase):
 
         return dir_tree
     # end create_test_dir_tree()
+
+    def test_dirtraverser(self) -> None:
+        traverser = DirTraverser(self.root_dir, ignore_hidden=False)
+        actual_dirs = set()
+        for dir in traverser:
+            actual_dirs.add(dir)
+        expected_dirs = set([self.root_dir, self.root_dir / 'dir1', self.root_dir / 'dir2', self.root_dir / 'dir2' / 'dir2_1', self.root_dir / 'dir2' / 'dir2_2', self.root_dir / '.dir3', self.root_dir / '.dir4', self.root_dir / 'dir2' / '.dir2_3'])
+        self.assertEqual(expected_dirs, actual_dirs)
+        return
+    # end trest_dirtraverser()
+
+    def test_filetraverser(self) -> None:
+        traverser = FileTraverser(self.root_dir, ignore_hidden=False)
+        actual_files = set()
+        for file in traverser:
+            actual_files.add(file)
+
+        expected_files = set([self.root_dir / 'dir1' / 'file1_1', self.root_dir / 'dir1' / 'file1_2', self.root_dir / 'dir1' / 'file_1_3', self.root_dir / 'dir1' / '.file1_4', self.root_dir / 'dir1' / '.file1_5', self.root_dir / 'dir2' / 'dir2_1' / 'file2_1', self.root_dir / '.dir4' / '.file4_1'])
+        self.assertEqual(expected_files, actual_files)
+        return
+    # end test_filetraverser()
 
     def test_traverse_only_dirs(self) -> None:
         traverser = Traverser(self.root_dir, is_file_iterator=False, ignore_hidden={'dirs': False, 'files': False})
@@ -100,61 +123,17 @@ class TestTraverser(unittest.TestCase):
 
         expected_files = set([self.root_dir / 'dir1' / 'file1_1', self.root_dir / 'dir1' / 'file1_2', self.root_dir / 'dir1' / 'file_1_3', self.root_dir / 'dir1' / '.file1_4', self.root_dir / 'dir1' / '.file1_5', self.root_dir / 'dir2' / 'dir2_1' / 'file2_1', self.root_dir / '.dir4' / '.file4_1'])
         expected_dirs = set([self.root_dir, self.root_dir / 'dir1', self.root_dir / 'dir2', self.root_dir / 'dir2' / 'dir2_1', self.root_dir / 'dir2' / 'dir2_2', self.root_dir / '.dir3', self.root_dir / '.dir4', self.root_dir / 'dir2' / '.dir2_3'])
-        expected = expected_dirs | expected_files
+        expected: set[Path] = expected_dirs | expected_files
         self.assertEqual(expected, actual_files)
         return
     # end test_traverse_only_files()
 
-    def test_manual_traverse_all(self) -> None:
-        traverser = Traverser(self.root_dir, ignore_hidden={'dirs': False, 'files': False})
-        actual_files = set()
-        dir: Path = traverser.next_dir()
-        if dir != Path():
-            actual_files.add(dir)
-        while dir != Path():
-            file: Path = traverser.next_file()
-            if file != Path():
-                actual_files.add(file)
-            while file != Path():
-                file = traverser.next_file()
-                if file != Path():
-                    actual_files.add(file)
-            dir: Path = traverser.next_dir()
-            if dir != Path():
-                actual_files.add(dir)
-
-        expected_files = set([self.root_dir / 'dir1' / 'file1_1', self.root_dir / 'dir1' / 'file1_2', self.root_dir / 'dir1' / 'file_1_3', self.root_dir / 'dir1' / '.file1_4', self.root_dir / 'dir1' / '.file1_5', self.root_dir / 'dir2' / 'dir2_1' / 'file2_1', self.root_dir / '.dir4' / '.file4_1'])
-        expected_dirs = set([self.root_dir, self.root_dir / 'dir1', self.root_dir / 'dir2', self.root_dir / 'dir2' / 'dir2_1', self.root_dir / 'dir2' / 'dir2_2', self.root_dir / '.dir3', self.root_dir / '.dir4', self.root_dir / 'dir2' / '.dir2_3'])
-        expected = expected_dirs | expected_files
-        self.assertEqual(expected, actual_files)
-        return
-    # end test_manual_traverse_all()
-    
-    def test_traverse_all_using_next(self) -> None:
-        traverser = Traverser(self.root_dir, ignore_hidden={'dirs': False, 'files': False})
-        actual_files = set()
-        keep_going = True
-        file = Path()
-        try:
-            file = next(traverser)
-        except StopIteration:
-            keep_going = False
-
-        while keep_going and (file != Path()):
-            actual_files.add(file)
-            try:
-                file = next(traverser)
-            except StopIteration:
-                keep_going = False
-
-        expected_files = set([self.root_dir / 'dir1' / 'file1_1', self.root_dir / 'dir1' / 'file1_2', self.root_dir / 'dir1' / 'file_1_3', self.root_dir / 'dir1' / '.file1_4', self.root_dir / 'dir1' / '.file1_5', self.root_dir / 'dir2' / 'dir2_1' / 'file2_1', self.root_dir / '.dir4' / '.file4_1'])
-        expected_dirs = set([self.root_dir, self.root_dir / 'dir1', self.root_dir / 'dir2', self.root_dir / 'dir2' / 'dir2_1', self.root_dir / 'dir2' / 'dir2_2', self.root_dir / '.dir3', self.root_dir / '.dir4', self.root_dir / 'dir2' / '.dir2_3'])
-        expected = expected_dirs | expected_files
-        self.assertEqual(expected, actual_files)
-        return
-    # end test_traverse_all_using_next()
-
 # end class TestTraverser
 
 if __name__ == '__main__':
+    log = GlobalLogger()
+    log.configure(log_dir = Path(__file__).parent,
+                 log_filename = 'traverser.log',
+                 log_level = logging.DEBUG,
+                 log_to_console = True)
     unittest.main()

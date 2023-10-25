@@ -101,6 +101,6 @@ class LoggerPool:
     # end release()
 # end LoggerPool
 
-logger_pool = LoggerPool(logger_name_list=['GlobalLogger'])
+# logger_pool = LoggerPool(logger_name_list=['GlobalLogger'])
 
-log = LogPoolManager(logger_pool)
+# log = LogPoolManager(logger_pool)

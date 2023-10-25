@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Pattern, Iterator, Generator
 from pathlib import Path
+import copy
 import re
 import fnmatch
 import json
@@ -22,160 +23,283 @@ def json_traverser_decoder(obj):
             return obj["data"]
     return obj
 
+# class AbstractTraverser(ABC):
 
-class AbstractTraverser(ABC):
+#     def __init__(self,
+#                  root_dir: Path,
+#                  ignore_hidden: bool,
+#                  match_list: list[str],
+#                  ignore_list: list[str]
+#                  ) -> None:
 
-    def __init__(self,
-                 root_dir: Path,
-                 ignore_hidden: bool,
-                 match_list: list[str],
-                 ignore_list: list[str]
-                 ) -> None:
+#         # ENABLE DEBUG MODE
+#         self.debug: bool = True
 
-        # ENABLE DEBUG MODE
-        self.debug: bool = True
+#         self.__saved_root_dir: Path = root_dir
+#         self.__saved_match_list: list[str] = match_list
+#         self.__saved_ignore_hidden: bool = ignore_hidden
+#         self.__saved_ignore_list: list[str] = ignore_list
 
-        self.__saved_root_dir: Path = root_dir
-        self.__saved_match_list: list[str] = match_list
-        self.__saved_ignore_hidden: bool = ignore_hidden
-        self.__saved_ignore_list: list[str] = ignore_list
+#         match_pattern: Pattern[str] = self.__make_pattern(self.__saved_match_list)
+#         self.__saved_match: Pattern[str] = match_pattern
 
-        match_pattern: Pattern[str] = self.__make_pattern(self.__saved_match_list)
-        self.__saved_match: Pattern[str] = match_pattern
+#         self.reset()
+#     # end __init__()
 
-        self.reset()
-    # end __init__()
+#     def reset(self) -> None:
+#         print("Entering AbstractTraverser reset")
+#         if not self.__saved_root_dir.is_dir():
+#             raise FileNotFoundError (f"Starting directory is invalid or does not exist: {self.__saved_root_dir}")
+#         self._root_dir = self.__saved_root_dir
+#         self._ignore_list: list[str] = self.__saved_ignore_list
+#         self._ignore_hidden: bool = self.__saved_ignore_hidden
+#         self._match_list: list[str] = self.__saved_match_list
+#         self._match: Pattern[str] = self.__saved_match
+#     # end reset()
 
-    def reset(self) -> None:
-        if not self.__saved_root_dir.is_dir():
-            raise FileNotFoundError (f"Starting directory is invalid or does not exist: {self.__saved_root_dir}")
-        self._ignore_list: list[str] = self.__saved_ignore_list
-        self._ignore_hidden: bool = self.__saved_ignore_hidden
-        self._match_list: list[str] = self.__saved_match_list
-        self._match: Pattern[str] = self.__saved_match
-    # end reset()
+#     def __make_pattern(self, glob_pattern_list: list[str]) -> Pattern[str]:
+#         regex_parts: list[str] = [fnmatch.translate(part) for part in glob_pattern_list]
 
-    def __make_pattern(self, glob_pattern_list: list[str]) -> Pattern[str]:
-        regex_parts: list[str] = [fnmatch.translate(part) for part in glob_pattern_list]
+#         regex_pattern: str = '|'.join(regex_parts)
 
-        regex_pattern: str = '|'.join(regex_parts)
+#         regex: Pattern[str] = re.compile(regex_pattern, re.IGNORECASE)
 
-        regex: Pattern[str] = re.compile(regex_pattern, re.IGNORECASE)
+#         return regex
+#     # end __make_pattern()
 
-        return regex
-    # end __make_pattern()
+#     def __get_files_in_curr_dir(self, curr_dir)-> list[Path]:
+#             files_in_curr_dir: list[Path] = []
+#             must_append: bool = False
+#             for path in curr_dir.iterdir():
+#                 must_append = path.is_file()
+#                 must_append = must_append and (path.name not in self._ignore_list)
+#                 must_append = must_append and (self._match.match(string=path.name) is not None)
+#                 must_append = must_append and ((self._ignore_hidden and not path.name.startswith('.')) or (not self._ignore_hidden))
+#                 if must_append:
+#                     files_in_curr_dir.append(path)
+#             return files_in_curr_dir
+#     # end __get_next_file_in_curr_dir()
 
-    def __iter__(self) -> Generator[Path, None, None]:
-        return self._iterate()
-    # end __iter__()
+#     def __iter__(self) -> Generator[Path, None, None]:
+#         return self._iterate()
+#     # end __iter__()
 
-    @abstractmethod
-    def _iterate(self) -> Generator[Path, None, None]:
-        pass
-    # end _iterate()
+#     @abstractmethod
+#     def _iterate(self) -> Generator[Path, None, None]:
+#         pass
+#     # end _iterate()
 
-# end class AbstractTraverser()
+# # end class AbstractTraverser()
 
-class DirTraverser(AbstractTraverser):
+# class DirTraverser(AbstractTraverser):
 
-    def __init__(self,
-                 root_dir: Path,
-                 ignore_hidden: bool = True,
-                 match_list: list[str] = ['*'],
-                 ignore_list: list[str] = ['.DS_Store', '.Trash']
-                 ) -> None:
-        super().__init__(root_dir, ignore_hidden, match_list, ignore_list)
-        self.reset()
-        return
-    # end __init__()
+#     def __init__(self,
+#                  root_dir: Path,
+#                  ignore_hidden: bool = True,
+#                  match_list: list[str] = ['*'],
+#                  ignore_list: list[str] = ['.DS_Store', '.Trash']
+#                  ) -> None:
+#         super().__init__(root_dir, ignore_hidden, match_list, ignore_list)
+#         self.reset()
+#         return
+#     # end __init__()
 
-    def reset(self) -> None:
-        super().reset()
-        self._directories: list[Path] = [self.__saved_root_dir]
-        self._current_dir: Path = Path()
-        return
+#     def reset(self) -> None:
+#         print("Entering DirTraverser reset")
+#         super().reset()
+#         self._directories: list[Path] = [self._root_dir]
+#         self._current_dir: Path = Path()
+#         return
+    
+#     def __deepcopy__(self, memo):
+#         new_instance = DirTraverser(
+#             root_dir=self.__saved_root_dir,
+#             ignore_hidden=self.__saved_ignore_hidden,
+#             match_list=self.__saved_match_list,
+#             ignore_list=self.__saved_ignore_list
+#         )
+#         return new_instance
+    
+#     def copy(self):
+#         return self.__deepcopy__({})
 
-    def _iterate(self) -> Generator[Path, None, None]:
-        while len(self._directories) > 0:
-            self._current_dir = self._directories.pop(0)
-            dir_name : str = self._current_dir.name
-            if dir_name in self._ignore_list or \
-                           (self._ignore_hidden and dir_name.startswith('.')):
-                continue
-            if self._match.match(string=dir_name):
-                dirs_at_this_level: list[Path] = []
-                for path in self._current_dir.iterdir():
-                    if path.is_dir() and (path.name not in self._ignore_list) and \
-                       ((self._ignore_hidden and not (path.name).startswith('.')) or (not self._ignore_hidden)):
-                        dirs_at_this_level.append(path)
-                self._directories[:0] = dirs_at_this_level  # Insert new dirs at beginning, needed to reduce memory used during tree traversal since this causes a depth first emission of dirs
-                self._files_indicator = False
-            yield self._current_dir
-    # end _iterate()
+#     def _iterate(self) -> Generator[Path, None, None]:
+#         while len(self._directories) > 0:
+#             self._current_dir = self._directories.pop(0)
+#             dir_name : str = self._current_dir.name
+#             if dir_name in self._ignore_list or \
+#                            (self._ignore_hidden and dir_name.startswith('.')):
+#                 continue
+#             if self._match.match(string=dir_name):
+#                 dirs_at_this_level: list[Path] = []
+#                 for path in self._current_dir.iterdir():
+#                     if path.is_dir() and (path.name not in self._ignore_list) and \
+#                        ((self._ignore_hidden and not (path.name).startswith('.')) or (not self._ignore_hidden)):
+#                         dirs_at_this_level.append(path)
+#                 self._directories[:0] = dirs_at_this_level  # Insert new dirs at beginning, needed to reduce memory used during tree traversal since this causes a depth first emission of dirs
+#                 self._files_indicator = False
+#             yield self._current_dir
+#     # end _iterate()
 
-# end class DirTraverser()
+# # end class DirTraverser()
 
-class FileTraverser(AbstractTraverser):
+# class FileTraverser(AbstractTraverser):
 
-    def __init__(self,
-                 root_dir: Path,
-                 dir_traverser: DirTraverser | None = None, # If dir_traverser has the same ignore/match/etc, then leave as None. Otherwise, create a unique dir_traverser instance
-                 emit_dirs: bool = False,
-                 ignore_hidden: bool = True,
-                 match_list: list[str] = ['*'],
-                 ignore_list: list[str] = ['.DS_Store', '.Trash'],
-                 ) -> None:
+#     def __init__(self,
+#                  root_dir: Path,
+#                  dir_traverser: DirTraverser | None, # If dir_traverser has the same ignore/match/etc, then leave as None. Otherwise, create a unique dir_traverser instance
+#                  ignore_hidden: bool = True,
+#                  match_list: list[str] = ['*'],
+#                  ignore_list: list[str] = ['.DS_Store', '.Trash'],
+#                  emit_dirs: bool = False
+#                  ) -> None:
 
-        # ENABLE DEBUG MODE
-        super().__init__(root_dir, ignore_hidden, match_list, ignore_list)
+#         # ENABLE DEBUG MODE
+#         super().__init__(root_dir, ignore_hidden, match_list, ignore_list)
 
-        if dir_traverser is None:
-            self.__saved_dir_traverser = DirTraverser(root_dir, ignore_hidden, match_list, ignore_list)
-        else:
-            self.__saved_dir_traverser: DirTraverser = dir_traverser
+#         self.__saved_dir_traverser: DirTraverser
+#         self.__saved_has_dir_traverser: bool = dir_traverser is not None
+#         if dir_traverser is not None:
+#             self.__saved_dir_traverser: DirTraverser = dir_traverser
 
-        self.__saved_emit_dirs: bool = emit_dirs
+#         self.__saved_emit_dirs: bool = emit_dirs
 
-        # self.__saved_files_in_curr_dir: list[Path] = []
+#         # self.__saved_files_in_curr_dir: list[Path] = []
+
         
-        self.reset()
-        return
-    # end __init__()
+#         self.reset()
+#         return
+#     # end __init__()
 
-    def reset(self) -> None:
-        super().reset()
-        self._dir_traverser: DirTraverser = self.__saved_dir_traverser
-        self._emit_dirs: bool = self.__saved_emit_dirs
-        # self._files_in_curr_dir: list[Path] = self.__saved_files_in_curr_dir
-        return
-    # end reset()
+#     def reset(self) -> None:
+#         print("Entering FileTraverser reset")
+#         super().reset()
+#         print(self.__saved_emit_dirs)
+#         if self.__saved_has_dir_traverser:
+#             self.__dir_traverser: DirTraverser = self.__saved_dir_traverser.copy()
+#         else:
+#             self.__dir_traverser = DirTraverser(self.__saved_root_dir,
+#                                     self.__saved_ignore_hidden,
+#                                     self.__saved_match_list,
+#                                     self.__saved_ignore_list)
+#         self._emit_dirs: bool = self.__saved_emit_dirs
+#         # self._files_in_curr_dir: list[Path] = self.__saved_files_in_curr_dir
+#         return
+#     # end reset()
 
-    def __get_files_in_curr_dir(self, curr_dir)-> list[Path]:
-            files_in_curr_dir: list[Path] = []
-            must_append: bool = False
-            for path in curr_dir.iterdir():
-                must_append = path.is_file()
-                must_append = must_append and (path.name not in self._ignore_list)
-                must_append = must_append and (self._match.match(string=path.name) is not None)
-                must_append = must_append and ((self._ignore_hidden and not path.name.startswith('.')) or (not self._ignore_hidden))
-                if must_append:
-                    files_in_curr_dir.append(path)
-            return files_in_curr_dir
-    # end _get_next_file_in_curr_dir()
+#     def __deepcopy__(self, memo):
+#         new_instance = FileTraverser(
+#             root_dir=self.__saved_root_dir,
+#             dir_traverser=copy.deepcopy(self.__saved_dir_traverser, memo),
+#             ignore_hidden=self.__saved_ignore_hidden,
+#             match_list=self.__saved_match_list,
+#             ignore_list=self.__saved_ignore_list,
+#             emit_dirs=self.__saved_emit_dirs
+#         )
+#         return new_instance
 
-    def _iterate(self) -> Generator[Path, None, None]:
-        for curr_dir in self._dir_traverser:
-            if self._emit_dirs:
-                yield curr_dir
+#     def _iterate(self) -> Generator[Path, None, None]:
+#         for curr_dir in self.__dir_traverser:
+#             if self._emit_dirs:
+#                 yield curr_dir
 
-            file_list: list[Path] = self.__get_files_in_curr_dir(curr_dir)
-            for file in file_list:
-                yield file
-    # end _iterate
+#             file_list: list[Path] = self.__get_files_in_curr_dir(curr_dir)
+#             for file in file_list:
+#                 yield file
+#     # end _iterate
 
-# end class DirTraverser()
+# # end class DirTraverser()
 
-class OldTraverser:
+# class Traverser:
+#     """
+#     USAGE:
+#         instantiate a Traverser object such as traverer = Traverser(/dirtree/to/traverse)
+
+#         Travers is an iterator object that yields either all the directories in
+#         the tree or all the files in the tree, or both, depending the is_dir_iterator and
+#         is_file_iterator parameters (see below).
+
+#         ignore_hidden['dirs'] and ignore_hidden['files'] will ignore hidden directories and
+#         hidden files respectively. Note that these boolean parameters override the match and ignore
+#         glob lists if there is a conflict.
+        
+#         match_dirs, match_files, ignore_list['dirs], and ig and ignore_hidden_files are each a list of glob expressions
+#         such as ['*.jpg', '*.jpeg']
+        
+#         match_dirs and match_files are each a list of glob expressions such as ['*.jpg', '*.jpeg'].
+#         Files or directories that match any of glob patterns in the list will be matched.
+#     """
+
+#     def __init__(self,
+#                  root_dir: Path,
+#                  ignore_hidden: dict[str, bool] = {'dirs': True, 'files': True},
+#                  match_list: dict[str, list[str]] = {'dirs': ['*'], 'files': ['*']},
+#                  ignore_list: dict[str, list[str]] = {'dirs': ['.DS_Store', '.Trash'], 'files': ['.DS_Store']},
+#                  is_dir_iterator: bool = True,
+#                  is_file_iterator: bool = True,
+#                  ) -> None:
+
+#         # ENABLE DEBUG MODE
+#         #self.debug: bool = True
+
+#         self.__saved_root_dir: Path = root_dir
+#         self.__saved_ignore_hidden: dict[str, bool] = ignore_hidden
+#         self.__saved_match_list: dict[str, list[str]] = match_list
+#         self.__saved_ignore_list: dict[str, list[str]] = ignore_list
+#         self.__saved_is_dir_iterator: bool = is_dir_iterator
+#         self.__saved_is_file_iterator: bool = is_file_iterator
+
+#         self.reset()
+#     # end __init__()
+
+#     def reset(self) -> None:
+#         self.__root_dir: Path = self.__saved_root_dir
+#         self.__is_dir_iterator: bool = self.__saved_is_dir_iterator
+#         self.__is_file_iterator: bool = self.__saved_is_file_iterator
+#         self.__ignore_hidden: dict[str, bool] = self.__saved_ignore_hidden
+#         self.__match_list: dict[str, list[str]] = self.__saved_match_list
+#         self.__ignore_list: dict[str, list[str]] = self.__saved_ignore_list
+
+#         self.__dir_traverser = DirTraverser(self.__root_dir,
+#                                             self.__ignore_hidden['dirs'],
+#                                             self.__match_list['dirs'],
+#                                             self.__ignore_list['dirs'])
+        
+#         if self.__is_file_iterator:
+#             self.__file_traverser = FileTraverser(self.__root_dir,
+#                                                 self.__dir_traverser,
+#                                                 self.__ignore_hidden['files'],
+#                                                 self.__match_list['files'],
+#                                                 self.__ignore_list['files'],
+#                                                 emit_dirs=self.__is_dir_iterator
+#                                         )
+#     # end reset()
+
+#     def __deepcopy__(self, memo):
+#         return Traverser(
+#             root_dir=self.__saved_root_dir,
+#             ignore_hidden=self.__saved_ignore_hidden,
+#             match_list=self.__saved_match_list,
+#             ignore_list=self.__saved_ignore_list,
+#             is_dir_iterator=self.__saved_is_dir_iterator,
+#             is_file_iterator=self.__saved_is_file_iterator
+#         )
+
+#     def __iter__(self) -> Generator[Path, None, None]:
+#         return self.__iterate()
+
+#     def __iterate(self) -> Generator[Path, None, None]:
+#         if self.__is_file_iterator:
+#             for file in self.__file_traverser:
+#                 yield file
+#         else:
+#             for dir in self.__dir_traverser:
+#                 yield dir
+#     # end _iterate_files(self)
+
+# # end class Traverser()
+
+class Traverser:
     # USAGE: instantiate a Traverser object such as traverer = Traverser(/dirtree/to/traverse)
     #        then call traverse.next_dir() and traverse.next_file() or use the traverser object as an
     #        iterator.
@@ -202,7 +326,7 @@ class OldTraverser:
     #        is_dir_iterator and is_file_iterator together allow iteration on only dirs in dir tree,
     #        only files in dir tree, or both.
     #       
-    #        match_dirs and match_files are each a list of single glob expressions such as ['*.jpg', '*.jpeg'].
+    #        match['dirs'] and match_files are each a list of single glob expressions such as ['*.jpg', '*.jpeg'].
     #        Files or directories that match any of glob patterns in the list will be matched
 
     def __init__(self,
@@ -214,10 +338,6 @@ class OldTraverser:
                  is_dir_iterator: bool = True,
                  is_file_iterator: bool = True,
                  ) -> None:
-
-        # ENABLE DEBUG MODE
-        #self.debug: bool = True
-
         self.__saved_root_dir: Path = root_dir
         self.__saved_match_dirs: list[str] = match_dirs
         self.__saved_match_files: list[str] = match_files
@@ -228,10 +348,10 @@ class OldTraverser:
         # self._is_iterator: dict[str, bool] = {'dirs': is_dir_iterator, 'files': is_file_iterator}
         # self.__saved_is_iterator: dict[str, bool] = self._is_iterator
 
-        self._setup()
+        self.reset()
     # end __init__()
 
-    def _setup(self) -> None:
+    def reset(self) -> None:
         self._is_dir_iterator: bool = self.__saved_is_dir_iterator
         self._is_file_iterator: bool = self.__saved_is_file_iterator
         # self._is_iterator: dict[str,bool] = self.__saved_is_iterator
@@ -252,7 +372,7 @@ class OldTraverser:
 
         if self._is_file_iterator and not self._is_dir_iterator:
             self._get_next_dir() # Initialize file iterator
-    # end _setup()
+    # end reset()
 
     def __make_pattern(self, glob_pattern_list: list[str]) -> Pattern[str]:
         regex_parts: list[str] = [fnmatch.translate(part) for part in glob_pattern_list]
@@ -359,8 +479,55 @@ class OldTraverser:
         return self._get_next_file()
     # end next_file()
 
-    def restart(self) -> None:
-        self._setup()
-        return
-    # end restart()
-# end class OldTraverser()
+# end class Traverser()
+
+class SimpleTraverser(Traverser):
+    def __init__(self,                 
+                 root_dir: Path,
+                 ignore_hidden: bool = True,
+                 match_list: list[str] = ['*'],
+                 ignore_list: list[str] =['.DS_Store', '.Trash'],
+                 is_dir_iterator: bool = True,
+                 is_file_iterator: bool = True
+            ) -> None:
+    
+        ignore_hidden_both: dict[str, bool] = {'dirs': ignore_hidden, 'files': ignore_hidden}
+        match_dirs: list[str] = match_list
+        match_files: list[str] = match_list
+        ignore_dict_list: dict[str, list[str]] = {'dirs': ignore_list, 'files': ignore_list}
+        
+        super().__init__(root_dir, match_dirs, match_files, ignore_hidden_both, ignore_dict_list, is_dir_iterator, is_file_iterator)
+    # end __init__()
+# end class SimpleTraverser()
+
+class DirTraverser(SimpleTraverser):
+    def __init__(self,                 
+                 root_dir: Path,
+                 ignore_hidden: bool = True,
+                 match_list: list[str] = ['*'],
+                 ignore_list: list[str] =['.DS_Store', '.Trash']
+            ) -> None:
+        super().__init__(root_dir,
+                        ignore_hidden,
+                        match_list,
+                        ignore_list,
+                        is_dir_iterator=True,
+                        is_file_iterator=False)
+     # end __init__()
+# end class DirTraverser()
+
+class FileTraverser(SimpleTraverser):
+    def __init__(self,                 
+                 root_dir: Path,
+                 ignore_hidden: bool = True,
+                 match_list: list[str] = ['*'],
+                 ignore_list: list[str] =['.DS_Store', '.Trash']
+            ) -> None:
+        super().__init__(root_dir,
+                        ignore_hidden,
+                        match_list,
+                        ignore_list,
+                        is_dir_iterator=False,
+                        is_file_iterator=True)
+     # end __init__()
+# end class FileTraverser()
