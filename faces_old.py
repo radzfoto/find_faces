@@ -3,12 +3,12 @@ from pathlib import Path
 import json
 import numpy as np
 from deepface import DeepFace
-from global_logger import GlobalLogger
+import logging
+from global_logger import configure_logger
 from deepface.detectors import FaceDetector
 from deepface.commons import functions
 import time
 import cv2
-import fnmatch
 from traverser import Traverser
 
 class Faces:
@@ -28,7 +28,7 @@ class Faces:
             "use_program_dir_for_logs": false,
             "log_dir": null,
             "log_filename": "faces.log",
-            "log_messages": null,
+            "log_level": null,
             "log_messages_to_console": false,
             "force_early_model_build": false,
             "metadata_dirname": ".faces",
@@ -41,9 +41,12 @@ class Faces:
         } """
         self.defaults = json.loads(defaults_json_string)
 
-        self.defaults['root_images_dir'] = Path().home() / 'pictures'
-        self.defaults['log_dir'] = (Path().home() / '.faces').as_posix(),  # Default to user home directory
-        self.defaults['log_messages'] = GlobalLogger.INFO
+        if self.defaults['root_images_dir'] is None:
+            self.defaults['root_images_dir'] = Path().home() / 'pictures'
+        if self.defaults['log_dir'] is None:
+            self.defaults['log_dir'] = (Path().home() / '.faces').as_posix(),  # Default to user home directory
+        if self.defaults['log_level'] is None:
+            self.defaults['log_level'] = logging.DEBUG
 
         self.params: dict = {}
         # Iterate over the default values dictionary.
@@ -63,7 +66,7 @@ class Faces:
         self.use_program_dir_for_logs = self.params["use_program_dir_for_logs"]
         self.log_dir = self.params["log_dir"]
         self.log_filename = self.params["log_filename"]
-        self.log_messages = self.params["log_messages"]
+        self.log_level = self.params["log_level"]
         self.log_messages_to_console = self.params["log_messages_to_console"]
         self.force_early_model_build = self.params["force_early_model_build"]
         self.metadata_dirname = self.params["metadata_dirname"]
@@ -84,7 +87,7 @@ class Faces:
             # overrides default of using home dir or any other assigned log_dir value
             self.log_dir: Path = Path(__file__).parent
         if self.debug:
-            self.log_messages: int = GlobalLogger.DEBUG
+            self.log_level: int = logging.DEBUG
 
         self.image_file_types_glob: str = '|'.join(f'*{ext}' for ext in self.image_file_types)
 
@@ -116,10 +119,10 @@ class Faces:
         assert self.normalization in self.normalizations, \
             f'Invalid face identification model: {self.normalizations}. Valid values are {norms_string}'
 
-        self.logger_config = GlobalLogger(root_dir=self.log_dir, filename=self.log_filename,
-                                        log_messages=self.log_messages,
-                                        log_messages_to_console=self.log_messages_to_console)
-        self.log = self.logger_config.global_logger
+        self.log: logging.Logger = configure_logger(log_name='faces_logger',
+                         log_file=self.log_dir / self.log_filename,
+                         log_level=self.log_level,
+                         log_messages_to_console=self.log_messages_to_console)
 
         self.log.info('\n\n---------- Starting FACES ----------------------------------------------------\n\n')
         self.enforce_detection: bool = False
@@ -216,9 +219,9 @@ class Faces:
             self.log.info(f'Starting DeepFace.represent at time: {start_time}')
             faces: list[dict] = DeepFace.represent(
                             img_path=filepath.as_posix(),
-                            model_name=self.identification_model_name,
                             enforce_detection=self.enforce_detection,
-                            face_detector_model_name=self.face_detector_model_name,
+                            model_name=self.identification_model_name,
+                            detector_backend=self.face_detector_model_name,
                             align=self.align,
                             normalization=self.normalization)
             end_time = time.time()
@@ -267,7 +270,7 @@ class Faces:
             if self.debug and (file_count > self.debug_max_files_to_process):
                 break
             fp_faces_found: tuple[Path, list[dict]] = (filepath, self.get_from_imagefile(filepath))
-            fp_faces.extend(fp_faces_found)
+            fp_faces.extend([fp_faces_found])
         # end for
         self.log.info(f'Found {len(fp_faces)} file/face tuples from list of filepaths')
         return fp_faces
@@ -293,7 +296,7 @@ class Faces:
     # end save_faces()
 
     @classmethod
-    def get_saved_faces(cls, metadata_filepath: Path, faces: list[dict]) -> list[dict]:
+    def get_saved_faces(cls, metadata_filepath: Path, faces: list[dict]) -> list[dict] | None:
         if not metadata_filepath.exists():
             return None
         with metadata_filepath.open("r") as md_fp:
@@ -344,30 +347,33 @@ class Faces:
         return counts
     # end find_faces
 
+    def view_faces_in_image(self, image_path: Path, metadata_path: Path) -> None:
+        return
+
     def view_faces(self, dir_path: Path) -> dict[str, int]:
         self.log.info('\nStart view faces...\n')
-        view_faces_start_time = time.time()
+        view_faces_start_time: float = time.time()
 
         dirs = Traverser(dir_path, is_dir_iterator=True)
 
-        counts = {'faces': 0, 'files': 0}
+        counts: dict[str, int] = {'faces': 0, 'files': 0}
 
         for dir in dirs:
             metadata_path: Path = dir / self.metadata_dirname
             if metadata_path.exists():
-                metadata_files = Traverser(metadata_path, match_files='*.json')
-                for metadata_fp in metadata_files:
-                    image_path = metadata_fp.parent.parent / Path(metadata_fp.name).stem
+                for metadata_fp in [file for file in metadata_path.iterdir() if file.is_file() and file.suffix == '.json']:
+                    image_path: Path = metadata_path.parent / Path(metadata_fp.name).stem
                     if not image_path.exists():
                         # The image file that corresponds to this metadata must have been deleted, so remove the metadata associated with that file
                         metadata_fp.unlink()
                     else:
                         self.log.info(f'Viewing faces in image: {image_path.as_posix()}')
+                        self.view_faces_in_image(image_path, metadata_fp)
                         counts['files'] += 1
             #end if
         # end for
-        view_faces_end_time = time.time()
-        view_faces_run_time = view_faces_end_time - view_faces_start_time
+        view_faces_end_time: float = time.time()
+        view_faces_run_time: float = view_faces_end_time - view_faces_start_time
         self.log.info(f"Viewed {counts['faces']} face(s) from {counts['files']} file(s) in {view_faces_run_time} seconds.\n")
         return counts
     # end view_faces
