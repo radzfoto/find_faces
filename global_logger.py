@@ -3,7 +3,7 @@
 import logging
 from pathlib import Path
 
-_logger_configured: bool = False
+_logger_configured: list[str] = []
 
 def configure_logger(log_name: str = 'global_logger',
                      log_file: Path = Path(__file__).parent / "logfile.log",
@@ -13,15 +13,24 @@ def configure_logger(log_name: str = 'global_logger',
                     ) -> logging.Logger:
     global _logger_configured
 
-    if _logger_configured:
+    if log_name in _logger_configured:
         return logging.getLogger(log_name)
+    else:
+        _logger_configured.append(log_name)
 
     # Create a logger object
     logger: logging.Logger = logging.getLogger(log_name)
     logger.setLevel(log_level)  # Set the logging level
 
     # Create a file handler that logs debug and higher level messages
-    file_handler = logging.FileHandler(log_file.as_posix())
+    filepath = log_file
+    if log_file.is_absolute():
+        if log_level == logging.DEBUG:
+            filepath = Path(__file__) / log_file
+        else:
+            filepath = Path().home() / log_file
+    file_handler = logging.FileHandler(filepath.as_posix())
+    
     file_handler.setLevel(log_level)
 
     # Create a console handler with a higher log level
@@ -37,8 +46,6 @@ def configure_logger(log_name: str = 'global_logger',
     logger.addHandler(file_handler)
     if log_messages_to_console:
         logger.addHandler(console_handler)
-    
-    _logger_configured = True
 
     return logger
 

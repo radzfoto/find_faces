@@ -214,8 +214,8 @@ class Faces:
 
     def get_from_imagefile(self, filepath: Path) -> list[dict]:
         self.log.info(f'Finding faces from image: {str(filepath)}\n')
+        start_time = time.time()
         if self.debug_use_deepface_represent:
-            start_time = time.time()
             self.log.info(f'Starting DeepFace.represent at time: {start_time}')
             faces: list[dict] = DeepFace.represent(
                             img_path=filepath.as_posix(),
@@ -229,7 +229,6 @@ class Faces:
             self.log.info(f'Finished DeepFace.represent at time: {end_time} taking: {delta_time} seconds')
             self.log.info(f'Found {len(faces)} face(s) from image {filepath.as_posix()}')
             return faces
-        start_time = time.time()
 
         faces_found = functions.extract_faces(
                         img=filepath.as_posix(),
