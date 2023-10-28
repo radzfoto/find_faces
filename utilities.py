@@ -6,7 +6,7 @@ import json
 import numpy as np
 import networkx as nx
 import pickle
-from global_logger import GlobalLogger
+from global_logger import configure_logger
 
 debug = False
 visualization_on = True
@@ -26,8 +26,7 @@ class JSONNumpyEncoder(json.JSONEncoder):
             return super(JSONNumpyEncoder, self).default(obj)
 # end JSONNumpyEncoder
 
-logger_config = GlobalLogger(None, None)  # Use default settings or already configured settings
-log = logger_config.global_logger
+log = configure_logger()
 
 class TraverseTree:
 
