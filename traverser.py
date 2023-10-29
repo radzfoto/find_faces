@@ -387,10 +387,14 @@ class Traverser:
     def _get_next_dir(self) -> Path:
         while self._directories:
             self._current_dir = self._directories.pop(0)
+            
+            if not self._current_dir.exists():  # Handle changes to directory structure during traversal
+                continue
             dir_name : str = self._current_dir.name
             if dir_name in self._ignore_dirs or \
                            (self._ignore_hidden_dirs and dir_name.startswith('.')):
                 continue
+
             if self._match_dirs.match(string=dir_name):
                 dirs_at_this_level: list[Path] = []
                 for path in self._current_dir.iterdir():

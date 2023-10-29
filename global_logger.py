@@ -6,10 +6,11 @@ from pathlib import Path
 _logger_configured: list[str] = []
 
 def configure_logger(log_name: str = 'global_logger',
-                     log_file: Path = Path(__file__).parent / "logfile.log",
-                     log_level: int = logging.DEBUG, 
+                     log_file: Path = Path("logfile.log"),
+                     log_level: int = logging.INFO,
                      log_format: str = '%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s',
-                     log_messages_to_console: bool = True
+                     log_messages_to_console: bool = True,
+                     debug = False
                     ) -> logging.Logger:
     global _logger_configured
 
@@ -18,18 +19,20 @@ def configure_logger(log_name: str = 'global_logger',
     else:
         _logger_configured.append(log_name)
 
+    config_log_level: int = logging.DEBUG if debug else log_level
+    if log_file.is_absolute():
+        config_log_file = log_file
+    else:
+        log_filename: str = Path(log_file).name
+        log_dir: Path = Path(__file__).parent if debug else Path.cwd()
+        config_log_file: Path = log_dir / log_filename
+
     # Create a logger object
     logger: logging.Logger = logging.getLogger(log_name)
-    logger.setLevel(log_level)  # Set the logging level
+    logger.setLevel(config_log_level)  # Set the logging level
 
     # Create a file handler that logs debug and higher level messages
-    filepath = log_file
-    if log_file.is_absolute():
-        if log_level == logging.DEBUG:
-            filepath = Path(__file__) / log_file
-        else:
-            filepath = Path().home() / log_file
-    file_handler = logging.FileHandler(filepath.as_posix())
+    file_handler = logging.FileHandler(config_log_file.as_posix())
     
     file_handler.setLevel(log_level)
 

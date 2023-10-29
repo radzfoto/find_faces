@@ -1,21 +1,15 @@
 # Copyright (c) Raul Diaz 2023, licensed per terms in LICENSE file in https://github.com/radzfoto/find_faces
 from pathlib import Path
 import json
-import numpy as np
-from deepface import DeepFace
+import time
 import logging
-from global_logger import configure_logger
+import numpy as np
+import cv2
+
+from deepface import DeepFace
 from deepface.detectors import FaceDetector
 from deepface.commons import functions, distance
-import time
-import cv2
-from traverser import Traverser, FileTraverser, DirTraverser
-
-log = configure_logger('faces_logger',
-                       log_file=Path('faces.log'),
-                       log_level=logging.DEBUG
-                       )
-
+from global_logger import configure_logger
 
 class FacesConfigManager:
     def __init__(self, params_filepath: Path) -> None:
@@ -27,6 +21,7 @@ class FacesConfigManager:
         self.config()
         self.validate()
         return
+    # end __init__()
 
     def load_defaults(self) -> dict:
         defaults_json_string = """
@@ -139,27 +134,45 @@ class FacesConfigManager:
     # end validate()
 # end class FacesConfigManager
 
+debug: bool = True
+
 class FileOps:
-    def __init__(self, config: FacesConfigManager):
+    def __init__(self,
+                 config: FacesConfigManager,
+                 logger: logging.Logger):
+        global log
+        
         self.config = config
+        self.log = logger
+        log = self.log
+    # end __init__()
+
+    def get_logger(self):
+        return self.log
+
+    def get_images_dir(self) -> Path:
+        return self.config.root_images_dir
 
     def get_image(self, filepath: Path) -> np.ndarray:
         image = cv2.imread(filepath.as_posix())
         return image
+    # end get_image()
 
     def get_image_files_in_dir(self, dir_path: Path) -> list[Path]:
         return [file for file in dir_path.iterdir() if file.is_file() and file.suffix in self.config.image_file_types]
+    # end get_image_files_in_dir
 
     def make_metadata_dir(self, dir_path: Path) -> Path:
-        metadata_path = dir_path / self.config.metadata_dirname
+        metadata_path: Path = dir_path / self.config.metadata_dirname
         metadata_path.mkdir(parents=False, exist_ok=True)
         return metadata_path
     # end make_metadata_dir()
 
     def get_metadata_dirpath(self, image_path: Path) -> Path:
-        metadata_dirpath: Path = image_path / self.config.metadata_dirname
+        metadata_dirpath: Path = image_path.parent / self.config.metadata_dirname
         assert metadata_dirpath.exists(), f'Metadata directory does not exist: {metadata_dirpath.as_posix()}'
         return metadata_dirpath
+    # end get_metadat_dirpath()
     
     def get_metadata_filename(self, image_filepath: Path) -> str:
         return f'{image_filepath.name}{self.config.metadata_extension}'
@@ -169,6 +182,11 @@ class FileOps:
         face_filepath = metadata_dirpath / self.get_metadata_filename(image_filepath)
         return face_filepath
     # end generate_metadata_filepath_name()
+
+    def get_imagepath_from_metadata(self, metadata_filepath: Path) -> Path:
+        imagepath: Path = metadata_filepath.parent.parent / Path(metadata_filepath.name).stem
+        return imagepath
+    # end get_imagepath_from_metadata()
 
     def save_faces(self, metadata_filepath: Path, faces: list[dict]) -> None:
         json_string: str = json.dumps(faces, indent=4)
@@ -203,6 +221,7 @@ class FaceModels:
     # end __init__()
 
     def add_embedding(self, face: list):
+        global log
         normalized_face_image, area, confidence = face
         start_time = time.time()
         embedding = self.get_representation(image = normalized_face_image)
@@ -214,6 +233,7 @@ class FaceModels:
         return face_with_embedding
 
     def generate_embeddings(self, faces_found: list):
+        global log
         faces: list[dict] = []
         face_count = 0
         embeddings_start_time = time.time()
@@ -230,6 +250,7 @@ class FaceModels:
     # end generate_embeddings()
 
     def get_face_detector_model(self): # Lazy model build
+        global log
         if self.face_detector_model is None:
             log.info(f'Face detection model build starting: {self.detector_model_name}...')
             start_time = time.time()
@@ -259,6 +280,7 @@ class FaceModels:
     # end get_representation()
 
     def get_identification_model(self): # Lazy model build
+        global log
         if self.identification_model is None:
             log.info(f'Identification model build starting: {self.identification_model_name}...')
             start_time = time.time()
@@ -279,6 +301,7 @@ class FaceDetection:
     #end __init__()
 
     def __get_faces(self, filepath: Path):
+        global log
         log.info(f'Finding faces from image: {str(filepath)}\n')
         start_time = time.time()
         
@@ -340,7 +363,6 @@ class FaceFunctions:
         self.face_models = FaceModels(config)
         self.face_detection = FaceDetection(config, self.face_models)
         self.face_identification = FaceIdentification(config, self.face_models)
-        # self.file_operations = FileOps(config)
 
     def get_from_area(self, image: np.ndarray, area: dict[str, int]) -> np.ndarray:
         x, y, w, h = area['x'], area['y'], area['w'], area['h']
@@ -391,63 +413,3 @@ class FaceFunctions:
         name: str = str("")
         return name
 # end class FaceFunctions
-
-def detect_faces_loop(config: FacesConfigManager, face_functions: FaceFunctions):
-    file_ops = FileOps(config)
-
-    dir_traverser = DirTraverser(config.root_images_dir,
-                              ignore_hidden=True)
-    
-    for dir in dir_traverser:
-        for file in file_ops.get_image_files_in_dir(dir):
-            metadata_filepath = file_ops.get_metadata_filepath(file)
-            if not metadata_filepath.exists():
-                faces = face_functions.detect(file)
-                file_ops.save_faces(metadata_filepath, faces)
-    return
-# end detect_faces_loop()
-
-def view_faces_loop(config: FacesConfigManager, face_functions: FaceFunctions):
-    file_ops = FileOps(config)
-
-    dir_traverser = DirTraverser(config.root_images_dir,
-                              ignore_hidden=True)
-
-    for dir in dir_traverser:
-        for file in file_ops.get_image_files_in_dir(dir):
-            metadata_filepath = file_ops.get_metadata_filepath(file)
-            faces = file_ops.get_saved_faces(metadata_filepath)
-            if faces is None:
-                print(f'No faces available for image file: {file.as_posix()}')
-            else:
-                image = file_ops.get_image(file)
-                if image is None:
-                    print(f'Unable to open image file: {file.as_posix()}')
-                else:
-                    face_functions.view_faces(image, faces)
-    return
-# end view_faces_loop()
-
-def main() -> None:
-    operating_parameters_filename: str = 'faces_parameters.json'
-    operating_parameters_path = Path(__file__).parent / operating_parameters_filename
-    with operating_parameters_path.open('r') as params_file:
-        params = json.load(params_file)
-
-    faces_config = FacesConfigManager(params)
-    face_functions: FaceFunctions = FaceFunctions(faces_config)
-
-    detect_faces_loop(faces_config, face_functions)
-
-    view_faces_loop(faces_config, face_functions)
-
-    # faces.find()
-
-    # faces.identify()
-
-    # faces.close()
-    return
-# end main
-
-if __name__ == '__main__':
-    main()
