@@ -385,7 +385,7 @@ class Traverser:
     # end __make_pattern()
 
     def _get_next_dir(self) -> Path:
-        while self._directories:
+        while len(self._directories) > 0:
             self._current_dir = self._directories.pop(0)
             
             if not self._current_dir.exists():  # Handle changes to directory structure during traversal
@@ -400,9 +400,8 @@ class Traverser:
                 for path in self._current_dir.iterdir():
                     if path.is_dir() and (path.name not in self._ignore_dirs) and \
                        ((self._ignore_hidden_dirs and not (path.name).startswith('.')) or (not self._ignore_hidden_dirs)):
-                        dirs_at_this_level.append(path)
-                self._directories[:0] = dirs_at_this_level  # Insert new dirs at beginning, needed to reduce memory used during tree traversal since this causes a depth first emission of dirs
-
+                        self._directories.append(path)
+                        
                 self._files_indicator = False
                 return self._current_dir
         return Path()

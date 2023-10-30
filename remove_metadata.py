@@ -6,11 +6,11 @@ def is_hidden(path: Path) -> bool:
     return path.name.startswith('.')
 # end is_hidden()
 
-def remove_metadata(root_dir: Path, dirnames_to_delete: list[Path] = [Path('.faces')]) -> None:
+def remove_metadata(root_dir: Path, dirnames_to_delete: list[str] = ['.faces']) -> None:
 
     dir_traverser = DirTraverser(root_dir, ignore_hidden=False)
     for dir_path in dir_traverser:
-        if dir_path in dirnames_to_delete:
+        if dir_path.name in dirnames_to_delete:
             if is_hidden(dir_path):
                 print(f'Removing metadata directory: {dir_path.as_posix()}')
                 shutil.rmtree(dir_path)
@@ -32,8 +32,8 @@ def main() -> None:
     root_dir: Path = Path().home() / Path("pics_test/test_small")
     
     print('Start removing metadata.')
-    remove_metadata(dir_path=root_dir, 
-                    dirnames_to_delete=[Path('.faces')])
+    remove_metadata(root_dir, 
+                    dirnames_to_delete=['.faces'])
     print('Completed removing metadata')
     return
 # end main

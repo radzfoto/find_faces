@@ -24,9 +24,10 @@ class FacesConfigManager:
     # end __init__()
 
     def load_defaults(self) -> dict:
-        defaults_json_string = """
+        defaults_json_string = \
+        """
         {
-            "root_images_dir": 'pictures',
+            "root_images_dir": "pictures",
             "identification_model_name": "DeepFace",
             "detector_model_name": "mtcnn",
             "normalization": "base",
@@ -152,15 +153,21 @@ class FileOps:
 
     def get_images_dir(self) -> Path:
         return self.config.root_images_dir
+    
+    def get_metadata_dirname(self) -> str:
+        return self.config.metadata_dirname
 
     def get_image(self, filepath: Path) -> np.ndarray:
         image = cv2.imread(filepath.as_posix())
         return image
     # end get_image()
 
-    def get_image_files_in_dir(self, dir_path: Path) -> list[Path]:
+    def get_image_files(self, dir_path: Path) -> list[Path]:
         return [file for file in dir_path.iterdir() if file.is_file() and file.suffix in self.config.image_file_types]
     # end get_image_files_in_dir
+
+    def get_metadata_files(self, metadata_path: Path) -> list[Path]:
+        return [file for file in metadata_path.iterdir() if file.is_file() and file.suffix == self.config.metadata_extension]
 
     def make_metadata_dir(self, dir_path: Path) -> Path:
         metadata_path: Path = dir_path / self.config.metadata_dirname
@@ -168,31 +175,38 @@ class FileOps:
         return metadata_path
     # end make_metadata_dir()
 
-    def get_metadata_dirpath(self, image_path: Path) -> Path:
+    def generate_metadata_dirpath(self, image_path: Path) -> Path:
         metadata_dirpath: Path = image_path.parent / self.config.metadata_dirname
-        assert metadata_dirpath.exists(), f'Metadata directory does not exist: {metadata_dirpath.as_posix()}'
         return metadata_dirpath
     # end get_metadat_dirpath()
     
-    def get_metadata_filename(self, image_filepath: Path) -> str:
+    def generate_metadata_filename(self, image_filepath: Path) -> str:
         return f'{image_filepath.name}{self.config.metadata_extension}'
 
-    def get_metadata_filepath(self, image_filepath: Path) -> Path:
-        metadata_dirpath = self.get_metadata_dirpath(image_filepath)
-        face_filepath = metadata_dirpath / self.get_metadata_filename(image_filepath)
+    def generate_metadata_filepath(self, image_filepath: Path) -> Path:
+        metadata_dirpath = self.generate_metadata_dirpath(image_filepath)
+        face_filepath = metadata_dirpath / self.generate_metadata_filename(image_filepath)
         return face_filepath
     # end generate_metadata_filepath_name()
 
     def get_imagepath_from_metadata(self, metadata_filepath: Path) -> Path:
-        imagepath: Path = metadata_filepath.parent.parent / Path(metadata_filepath.name).stem
+        image_name = metadata_filepath.name
+        image_name = image_name.rsplit('.', 1)[0] # drop the metadata extension
+
+        imagepath: Path = metadata_filepath.parent.parent / image_name
         return imagepath
     # end get_imagepath_from_metadata()
 
-    def save_faces(self, metadata_filepath: Path, faces: list[dict]) -> None:
-        json_string: str = json.dumps(faces, indent=4)
+    def save_faces(self, metadata_filepath: Path, faces: list[dict]) -> int:
+        if len(faces) > 0:
+            if not metadata_filepath.parent.exists():
+                self.make_metadata_dir(metadata_filepath.parent.parent)
+        
+            json_string: str = json.dumps(faces, indent=4)
 
-        with metadata_filepath.open('w') as md_fp:
-            md_fp.write(json_string)
+            with metadata_filepath.open('w') as md_fp:
+                md_fp.write(json_string)
+        return len(faces)
     # end save_faces()
 
     def get_saved_faces(self, metadata_filepath: Path) -> list[dict] | None:
@@ -213,6 +227,8 @@ class FaceModels:
         self.config = config
         self.detector_model_name: str = config.detector_model_name
         self.identification_model_name: str = config.identification_model_name
+        self.identification_model = config.identification_model
+        self.face_detector_model = config.face_detector_model
 
         if config.force_early_model_build:
             self.face_detector_model = self.get_face_detector_model()
@@ -255,6 +271,7 @@ class FaceModels:
             log.info(f'Face detection model build starting: {self.detector_model_name}...')
             start_time = time.time()
             self.face_detector_model = FaceDetector.build_model(self.detector_model_name)
+            self.config.face_detector_model = self.face_detector_model  # update the model in config in case it is needed by other classes
             end_time = time.time()
             log.info(f'Face detection model built in {end_time - start_time} seconds.\n')
         return self.face_detector_model
@@ -262,6 +279,8 @@ class FaceModels:
 
     def get_representation(self,
                            image: np.ndarray):
+        global log
+
         if self.config.normalization is None:
             norm_image = image
         else:
@@ -283,8 +302,11 @@ class FaceModels:
         global log
         if self.identification_model is None:
             log.info(f'Identification model build starting: {self.identification_model_name}...')
+            log.info(f'Initializing and loading the face identification model may take up to a few minutes. Please be patient.')
+
             start_time = time.time()
             self.identification_model = DeepFace.build_model(self.identification_model_name)
+            self.config.identification_model = self.identification_model  # update the model in config in case it is needed by other classes
             end_time = time.time()
             log.info(f'Identification model built {end_time - start_time} seconds.\n')
         return self.identification_model
