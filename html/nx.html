@@ -32,8 +32,8 @@
         <style type="text/css">
 
              #mynetwork {
-                 width: 500px;
-                 height: 500px;
+                 width: 100%;
+                 height: 800px;
                  background-color: #ffffff;
                  border: 1px solid lightgray;
                  position: relative;
@@ -88,8 +88,8 @@
                   
 
                   // parsing and collecting nodes and edges from the python
-                  nodes = new vis.DataSet([{"color": "#97c2fc", "id": 0, "label": "Node 0", "shape": "square", "size": 40}, {"group": 1, "id": 1, "label": "Node 1", "shape": "square", "size": 40, "title": "Number 1"}, {"color": "#97c2fc", "id": 9, "label": "Node 2", "shape": "square", "size": 40}, {"color": "#97c2fc", "id": 2, "label": "Node 3", "shape": "square", "size": 40}, {"group": 10, "id": 3, "label": "Node 4", "shape": "square", "size": 40, "title": "I belong to a different group!"}, {"color": "#97c2fc", "id": 4, "label": "Node 5", "shape": "square", "size": 40}, {"color": "#97c2fc", "id": 5, "label": "Node 6", "shape": "square", "size": 40}, {"color": "#97c2fc", "id": 6, "label": "Node 7", "shape": "square", "size": 40}, {"color": "#97c2fc", "id": 7, "label": "Node 8", "shape": "square", "size": 40}, {"color": "#97c2fc", "id": 8, "label": "Node 9", "shape": "square", "size": 40}, {"group": 2, "id": 20, "label": "Node 10", "shape": "square", "size": 80, "title": "couple"}, {"group": 2, "id": 21, "label": "Node 11", "shape": "square", "size": 60, "title": "couple"}, {"group": 3, "id": 25, "label": "Node 12", "shape": "square", "size": 100, "title": "lonely node"}]);
-                  edges = new vis.DataSet([{"from": 0, "title": "Edge 0", "to": 1, "width": 1}, {"from": 0, "title": "Edge 1", "to": 9, "width": 1}, {"from": 1, "title": "Edge 2", "to": 2, "width": 1}, {"from": 2, "title": "Edge 3", "to": 3, "width": 1}, {"from": 3, "title": "Edge 4", "to": 4, "width": 1}, {"from": 4, "title": "Edge 5", "to": 5, "width": 1}, {"from": 5, "title": "Edge 6", "to": 6, "width": 1}, {"from": 6, "title": "Edge 7", "to": 7, "width": 1}, {"from": 7, "title": "Edge 8", "to": 8, "width": 1}, {"from": 8, "title": "Edge 9", "to": 9, "width": 1}, {"from": 20, "title": "Edge 10", "to": 21, "width": 5}]);
+                  nodes = new vis.DataSet([{"color": "#97c2fc", "font": {"size": 10}, "id": 0, "label": "Node 0", "labelBreak": true, "physics": false, "shape": "circle", "x": 20, "y": 400}, {"color": "#97c2fc", "font": {"size": 10}, "id": 1, "label": "Node 1", "labelBreak": true, "shape": "square", "size": 60}, {"color": "#97c2fc", "font": {"size": 10}, "id": 2, "label": "Node 2", "labelBreak": true, "shape": "square", "size": 60}, {"color": "#97c2fc", "font": {"size": 10}, "id": 3, "label": "Node 3", "labelBreak": true, "shape": "square", "size": 60}, {"color": "#97c2fc", "font": {"size": 10}, "id": 4, "label": "Node 4", "labelBreak": true, "shape": "square", "size": 60}, {"color": "#97c2fc", "font": {"size": 10}, "id": 5, "label": "Node 6", "labelBreak": true, "physics": false, "shape": "circle", "x": 1000, "y": 400}]);
+                  edges = new vis.DataSet([{"arrows": "to", "from": 0, "label": "Edge 0 -- 1", "title": "Edge 0", "to": 1}, {"arrows": "to", "from": 1, "label": "Edge 1 -- 2", "title": "Edge 1", "to": 2}, {"arrows": "to", "from": 2, "label": "Edge 2 -- 3", "title": "Edge 2", "to": 3}, {"arrows": "to", "from": 3, "label": "Edge 3 -- 4", "title": "Edge 3", "to": 4}, {"arrows": "to", "from": 4, "label": "Edge 4-5", "title": "Edge 4", "to": 5}]);
 
                   nodeColors = {};
                   allNodes = nodes.get({ returnType: "Object" });
@@ -120,6 +120,14 @@
     },
     "physics": {
         "enabled": true,
+        "repulsion": {
+            "centralGravity": 0.2,
+            "damping": 0.09,
+            "nodeDistance": 100,
+            "springConstant": 0.05,
+            "springLength": 200
+        },
+        "solver": "repulsion",
         "stabilization": {
             "enabled": true,
             "fit": true,
