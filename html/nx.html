@@ -32,8 +32,8 @@
         <style type="text/css">
 
              #mynetwork {
-                 width: 100%;
-                 height: 800px;
+                 width: 1500;
+                 height: 700px;
                  background-color: #ffffff;
                  border: 1px solid lightgray;
                  position: relative;
@@ -88,8 +88,8 @@
                   
 
                   // parsing and collecting nodes and edges from the python
-                  nodes = new vis.DataSet([{"color": "#97c2fc", "font": {"size": 10}, "id": 0, "label": "Node 0", "labelBreak": true, "physics": false, "shape": "circle", "x": 20, "y": 400}, {"color": "#97c2fc", "font": {"size": 10}, "id": 1, "label": "Node 1", "labelBreak": true, "shape": "square", "size": 60}, {"color": "#97c2fc", "font": {"size": 10}, "id": 2, "label": "Node 2", "labelBreak": true, "shape": "square", "size": 60}, {"color": "#97c2fc", "font": {"size": 10}, "id": 3, "label": "Node 3", "labelBreak": true, "shape": "square", "size": 60}, {"color": "#97c2fc", "font": {"size": 10}, "id": 4, "label": "Node 4", "labelBreak": true, "shape": "square", "size": 60}, {"color": "#97c2fc", "font": {"size": 10}, "id": 5, "label": "Node 6", "labelBreak": true, "physics": false, "shape": "circle", "x": 1000, "y": 400}]);
-                  edges = new vis.DataSet([{"arrows": "to", "from": 0, "label": "Edge 0 -- 1", "title": "Edge 0", "to": 1}, {"arrows": "to", "from": 1, "label": "Edge 1 -- 2", "title": "Edge 1", "to": 2}, {"arrows": "to", "from": 2, "label": "Edge 2 -- 3", "title": "Edge 2", "to": 3}, {"arrows": "to", "from": 3, "label": "Edge 3 -- 4", "title": "Edge 3", "to": 4}, {"arrows": "to", "from": 4, "label": "Edge 4-5", "title": "Edge 4", "to": 5}]);
+                  nodes = new vis.DataSet([{"color": "#97c2fc", "font": {"size": 12}, "id": 0, "label": "Input\ns=\"1920x1080\"\npix_fmt=\"yuv420p10le\"", "labelBreak": true, "physics": false, "shape": "box", "x": 20, "y": 400}, {"color": "#97c2fc", "font": {"size": 12}, "id": 1, "label": "Super resolution\nsuper2xsai\nsize=\"3840x2160\"", "labelBreak": true, "physics": true, "shape": "box"}, {"color": "#97c2fc", "font": {"size": 12}, "id": 2, "label": "Compression\npipe:\u000bcodec=\"libx265\"\ncrf=25\nformat=\"rawvideo\"\npix_fmt=\"yuv420p\"", "labelBreak": true, "physics": true, "shape": "box"}, {"color": "#97c2fc", "font": {"size": 12}, "id": 3, "label": "Output\nformat=\"mp4\"\nmovflags=\"frag_keyframe+empty_moov\"", "labelBreak": true, "physics": false, "shape": "box"}, {"color": "#97c2fc", "font": {"size": 12}, "id": 4, "label": "VMAF Reference Input\ns=\"3840x2160\"\npix_fmt=\"yuv420p10le\"", "labelBreak": true, "physics": false, "shape": "box"}, {"color": "#97c2fc", "font": {"size": 12}, "id": 5, "label": "VMAF Test Input\ncompressed_file", "labelBreak": true, "physics": true, "shape": "box"}, {"color": "#97c2fc", "font": {"size": 12}, "id": 6, "label": "VMAF: libvmaf\nmodel_path=vmaf_model_path", "labelBreak": true, "physics": false, "shape": "box"}, {"color": "#97c2fc", "font": {"size": 12}, "id": 7, "label": "FFMPEG compression pipeline code:\n\n(\n    ffmpeg\n    .input(input_filename, s=\u00271920x1080\u0027, pix_fmt=\u0027yuv420p10le\u0027)\n    .filter(\u0027bilateral\u0027, sigmaS=75, sigmaR=0.75)\n    .filter(\u0027super2xsai\u0027, size=\u00273840x2160\u0027)\n    .output(compressed_file, vcodec=\u0027libx265\u0027, crf=25, format=\u0027mp4\u0027,\n            pix_fmt=\u0027yuv420p\u0027, movflags=\u0027frag_keyframe+empty_moov\u0027)\n    .run()\n)\n", "labelBreak": true, "physics": false, "shape": "box"}, {"color": "#97c2fc", "font": {"size": 12}, "id": 8, "label": "FFMPEG VMAF pipeline code:\n\nvmaf_command = (\n    ffmpeg\n    .input(reference_file, s=\u00273840x2160\u0027, pix_fmt=\u0027yuv420p10le\u0027)\n    .input(compressed_file)\n    .filter(\u0027libvmaf\u0027, model_path=vmaf_model_path)\n    .run()\n)\n", "labelBreak": true, "physics": false, "shape": "box"}]);
+                  edges = new vis.DataSet([{"arrows": "to", "from": 0, "to": 1}, {"arrows": "to", "from": 1, "to": 2}, {"arrows": "to", "from": 2, "to": 3}, {"arrows": "to", "from": 4, "to": 5}, {"arrows": "to", "from": 5, "to": 6}]);
 
                   nodeColors = {};
                   allNodes = nodes.get({ returnType: "Object" });
